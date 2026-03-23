@@ -1,0 +1,108 @@
+import { useEffect, useState, useCallback } from 'react';
+import axios from 'axios';
+import type { Service } from '../types';
+import { StatusCard } from './StatusCard';
+import { RefreshCw, Activity, Server, Building2, AlertCircle } from 'lucide-react';
+
+export function StatusDashboard() {
+  const [services, setServices] = useState<Service[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchStatuses = useCallback(async (isRefresh = false) => {
+    try {
+      if (isRefresh) setRefreshing(true);
+      setError(null);
+      const response = await axios.get('http://localhost:3001/api/status');
+      setServices(response.data);
+    } catch (err) {
+      console.error('Failed to fetch statuses', err);
+      setError('Não foi possível carregar o status dos serviços. O servidor pode estar offline.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchStatuses();
+    // 5 minutes polling
+    const interval = setInterval(() => {
+      fetchStatuses(true);
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [fetchStatuses]);
+
+  // Group services
+  const groupedServices = services.reduce((acc, service) => {
+    const group = service.group;
+    if (!acc[group]) acc[group] = [];
+    acc[group].push(service);
+    return acc;
+  }, {} as Record<string, Service[]>);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <RefreshCw className="w-12 h-12 text-green-500 animate-spin mb-4" />
+        <p className="text-gray-400">Carregando status dos serviços...</p>
+      </div>
+    );
+  }
+
+  const getGroupIcon = (groupName: string) => {
+    switch (groupName) {
+      case 'Sistemas': return <Activity className="w-5 h-5" />;
+      case 'Infraestrutura': return <Server className="w-5 h-5" />;
+      case 'Bancos': return <Building2 className="w-5 h-5" />;
+      default: return <Activity className="w-5 h-5" />;
+    }
+  };
+
+  return (
+    <div className="space-y-12 pb-12">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-100 tracking-tight">Status dos Serviços</h1>
+          <p className="text-gray-400 mt-1">Acompanhe em tempo real a integridade das integrações.</p>
+        </div>
+        
+        <button 
+          onClick={() => fetchStatuses(true)}
+          disabled={refreshing}
+          className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-200 px-4 py-2.5 rounded-lg border border-gray-700 transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-green-400' : ''}`} />
+          {refreshing ? 'Atualizando...' : 'Atualizar Agora'}
+        </button>
+      </div>
+
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-start gap-3">
+          <AlertCircle className="w-6 h-6 text-red-500 flex-shrink-0 mt-0.5" />
+          <p className="text-red-400">{error}</p>
+        </div>
+      )}
+
+      {!error && Object.entries(groupedServices).map(([groupName, groupServices]) => (
+        <div key={groupName} className="space-y-4">
+          <div className="flex items-center gap-2 border-b border-gray-800 pb-2">
+            <div className="text-green-500">
+              {getGroupIcon(groupName)}
+            </div>
+            <h2 className="text-xl font-semibold text-gray-200">{groupName}</h2>
+            <span className="ml-2 bg-gray-800 text-gray-400 text-xs px-2 py-1 rounded-full">{groupServices.length}</span>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-start">
+            {groupServices.map((service, idx) => (
+              <StatusCard key={`${service.name}-${idx}`} service={service} />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}

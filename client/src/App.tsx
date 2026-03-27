@@ -1,4 +1,3 @@
-import React from 'react';
 import { StatusDashboard } from './components/StatusDashboard';
 
 function App() {

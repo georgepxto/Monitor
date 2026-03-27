@@ -187,7 +187,7 @@ const newsMonitoredServices = [
     {
         name: 'Itaú',
         keywords: 'itau fora do ar OR itau caiu OR itau instabilidade OR itau app problema',
-        ddSlug: 'itau',
+        ddSlug: 'banco-itau',
         group: 'Bancos'
     },
     {
@@ -199,7 +199,7 @@ const newsMonitoredServices = [
     {
         name: 'Caixa',
         keywords: 'caixa fora do ar OR caixa caiu OR caixa instabilidade OR caixa app problema',
-        ddSlug: 'caixa-economica-federal',
+        ddSlug: 'caixa',
         group: 'Bancos'
     },
     {

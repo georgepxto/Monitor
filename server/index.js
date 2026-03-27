@@ -9,7 +9,22 @@ const port = process.env.PORT || 3001;
 // Initialize cache with 2 minutes standard TTL
 const cache = new NodeCache({ stdTTL: 120 });
 
-app.use(cors());
+const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:4173',
+    process.env.CLIENT_URL, // URL do frontend em produção (ex: https://monitor.vercel.app)
+].filter(Boolean);
+
+app.use(cors({
+    origin: (origin, callback) => {
+        // Permite requisições sem origin (ex: apps mobile, curl) e origens na lista
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error(`CORS bloqueado para origem: ${origin}`));
+        }
+    }
+}));
 app.use(express.json());
 
 // Telegram Bot Stub/Mock

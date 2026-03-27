@@ -14,7 +14,8 @@ export function StatusDashboard() {
     try {
       if (isRefresh) setRefreshing(true);
       setError(null);
-      const response = await axios.get('http://localhost:3001/api/status');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const response = await axios.get(`${API_URL}/api/status`);
       setServices(response.data);
     } catch (err) {
       console.error('Failed to fetch statuses', err);

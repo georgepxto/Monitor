@@ -101,7 +101,7 @@ export function StatusDashboard() {
       </div>
 
       {/* Disclaimer */}
-      <div className="flex items-start gap-2.5 px-4 py-3 bg-gray-800/40 border border-gray-700/50 rounded-xl text-xs text-gray-400">
+      <div className="flex items-start gap-2.5 px-4 py-3 bg-gray-800/40 border border-gray-700/50 rounded-xl text-sm text-gray-400">
         <span className="text-yellow-500/80 mt-0.5 flex-shrink-0">⚠️</span>
         <p>
           As informações exibidas são obtidas automaticamente de fontes públicas e podem não refletir a situação em tempo real com 100% de precisão.{' '}

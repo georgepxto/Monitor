@@ -228,9 +228,16 @@ async function fetchNewsSentiment(service) {
         const ONE_HOUR = 60 * 60 * 1000;
 
         // Apenas artigos da última 1 hora
+        // Usa isoDate (mais confiável) com fallback para pubDate
+        // Artigos sem data válida são REJEITADOS (evita artigos antigos reindexados)
         const recentArticles = feed.items.filter(item => {
-            const pubDate = item.pubDate ? new Date(item.pubDate).getTime() : 0;
-            return (now - pubDate) < ONE_HOUR;
+            const rawDate = item.isoDate || item.pubDate;
+            if (!rawDate) return false; // sem data → rejeita
+
+            const ts = new Date(rawDate).getTime();
+            if (isNaN(ts)) return false; // data inválida → rejeita
+
+            return (now - ts) < ONE_HOUR;
         });
 
         const recentCount = recentArticles.length;

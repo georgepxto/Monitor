@@ -2,17 +2,26 @@ import { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import type { Service } from '../types';
 import { StatusCard } from './StatusCard';
-import { RefreshCw, Activity, Server, Building2, AlertCircle } from 'lucide-react';
+import { GlossaryModal } from './GlossaryModal';
+import { RefreshCw, Activity, Server, Building2, AlertCircle, BookOpen } from 'lucide-react';
 
 export function StatusDashboard() {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showGlossary, setShowGlossary] = useState(false);
 
   const fetchStatuses = useCallback(async (isRefresh = false) => {
     try {
-      if (isRefresh) setRefreshing(true);
+      if (isRefresh) {
+        setRefreshing(true);
+        // Limpa o cache do servidor para garantir dados frescos
+        try {
+          const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+          await axios.post(`${API_URL}/api/refresh`);
+        } catch (_) { /* silencia erro de cache clear */ }
+      }
       setError(null);
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
       const response = await axios.get(`${API_URL}/api/status`);
@@ -63,6 +72,7 @@ export function StatusDashboard() {
   };
 
   return (
+    <>
     <div className="space-y-12 pb-12">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -70,14 +80,24 @@ export function StatusDashboard() {
           <p className="text-gray-400 mt-1">Acompanhe em tempo real a integridade das integrações.</p>
         </div>
         
-        <button 
-          onClick={() => fetchStatuses(true)}
-          disabled={refreshing}
-          className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-200 px-4 py-2.5 rounded-lg border border-gray-700 transition-colors disabled:opacity-50"
-        >
-          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-green-400' : ''}`} />
-          {refreshing ? 'Atualizando...' : 'Atualizar Agora'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setShowGlossary(true)}
+            className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2.5 rounded-lg border border-gray-700 transition-colors text-sm"
+            title="Ver glossário de status e incidentes"
+          >
+            <BookOpen className="w-4 h-4" />
+            Glossário
+          </button>
+          <button 
+            onClick={() => fetchStatuses(true)}
+            disabled={refreshing}
+            className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-200 px-4 py-2.5 rounded-lg border border-gray-700 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-green-400' : ''}`} />
+            {refreshing ? 'Atualizando...' : 'Atualizar Agora'}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -105,5 +125,8 @@ export function StatusDashboard() {
         </div>
       ))}
     </div>
+
+    {showGlossary && <GlossaryModal onClose={() => setShowGlossary(false)} />}
+    </>
   );
 }

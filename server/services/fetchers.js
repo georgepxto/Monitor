@@ -4,16 +4,26 @@ const rssParser = new Parser();
 
 // Group 1: Statuspage APIs
 const statuspageServices = [
-    { name: 'Betconstruct', url: 'https://status.betconstruct.com/api/v2/status.json', group: 'Sistemas' },
+    { name: 'Betconstruct', url: 'https://status.betconstruct.com/api/v2/status.json', group: 'Sistemas', checkBackoffice: true },
     { name: 'Livechat', url: 'https://status.livechat.com/api/v2/status.json', group: 'Sistemas' },
     { name: 'BTG Pactual Empresas', url: 'https://status.empresas.btgpactual.com/api/v2/status.json', group: 'Bancos' },
     { name: 'Legitimuz', url: 'https://legitimuz.statuspage.io/api/v2/status.json', group: 'Sistemas' },
     { name: 'Cloudflare', url: 'https://www.cloudflarestatus.com/api/v2/status.json', group: 'Infraestrutura' }
 ];
 
+// Palavras-chave que indicam problemas críticos para a operação (backoffice)
+const CRITICAL_KEYWORDS = ['backoffice', 'back office', 'back-office'];
+
+function hasBackofficeKeyword(text) {
+    if (!text) return false;
+    const lower = text.toLowerCase();
+    return CRITICAL_KEYWORDS.some(kw => lower.includes(kw));
+}
+
 function mapStatuspageStatus(indicator) {
     if (indicator === 'none') return 'Verde';
     if (indicator === 'minor') return 'Amarelo';
+    if (indicator === 'maintenance') return 'Amarelo'; // Manutenção programada ≠ queda
     return 'Vermelho';
 }
 
@@ -22,11 +32,26 @@ async function fetchStatuspage(service) {
         const summaryUrl = service.url.replace('/status.json', '/summary.json');
         const response = await axios.get(summaryUrl, { timeout: 8000 });
         const data = response.data;
-        const status = mapStatuspageStatus(data.status.indicator);
+        const indicator = data.status.indicator;
+        let status = mapStatuspageStatus(indicator);
         const link = data.page.url || service.url.replace('/api/v2/status.json', '');
 
         let description = undefined;
-        if (status !== 'Verde' && data.incidents && data.incidents.length > 0) {
+        let backofficeAlert = undefined;
+
+        if (indicator === 'maintenance') {
+            // Busca manutenções ativas para exibir a descrição correta
+            const maintenances = data.scheduled_maintenances || [];
+            const activeMaintenance = maintenances.find(m => m.status === 'in_progress') || maintenances[0];
+            if (activeMaintenance) {
+                const latestUpdate = activeMaintenance.incident_updates?.[0];
+                description = latestUpdate
+                    ? `🔧 Manutenção em andamento: ${latestUpdate.body}`
+                    : `🔧 Manutenção em andamento: ${activeMaintenance.name}`;
+            } else {
+                description = `🔧 ${data.status.description || 'Manutenção programada em andamento.'}`;
+            }
+        } else if (status !== 'Verde' && data.incidents && data.incidents.length > 0) {
             const latestIncident = data.incidents[0];
             const latestUpdate = latestIncident.incident_updates?.[0];
             description = latestUpdate
@@ -36,13 +61,41 @@ async function fetchStatuspage(service) {
             description = data.status.description;
         }
 
+        // --- Detecção de incidentes relacionados ao Backoffice ---
+        // Mesmo que o status geral seja Verde, verifica se há algum incident ativo
+        // que mencione backoffice no nome ou nos componentes afetados.
+        if (service.checkBackoffice && data.incidents && data.incidents.length > 0) {
+            const backofficeIncident = data.incidents.find(incident => {
+                // Checa o nome do incidente
+                if (hasBackofficeKeyword(incident.name)) return true;
+                // Checa os componentes afetados
+                if (incident.components?.some(c => hasBackofficeKeyword(c.name))) return true;
+                // Checa o body do update mais recente
+                const latestUpdate = incident.incident_updates?.[0];
+                if (hasBackofficeKeyword(latestUpdate?.body)) return true;
+                return false;
+            });
+
+            if (backofficeIncident) {
+                // Eleva o status para pelo menos Amarelo e adiciona alerta
+                if (status === 'Verde') status = 'Amarelo';
+                const latestUpdate = backofficeIncident.incident_updates?.[0];
+                backofficeAlert = latestUpdate
+                    ? `⚠️ Backoffice: ${backofficeIncident.name} — ${latestUpdate.body}`
+                    : `⚠️ Backoffice com problema: ${backofficeIncident.name}`;
+                console.log(`[BACKOFFICE ALERT] ${service.name}: ${backofficeIncident.name}`);
+            }
+        }
+
         return {
             name: service.name,
             group: service.group,
             status,
             lastUpdated: data.page.updated_at || new Date().toISOString(),
-            description,
-            link
+            description: backofficeAlert || description,
+            backofficeAlert: !!backofficeAlert,
+            link,
+            isMaintenance: indicator === 'maintenance'
         };
     } catch (error) {
         console.error(`Error fetching ${service.name}:`, error.message);
@@ -57,6 +110,7 @@ async function fetchStatuspage(service) {
         };
     }
 }
+
 
 // Group 2: AWS (RSS)
 async function fetchAWS() {
@@ -171,46 +225,33 @@ async function fetchNewsSentiment(service) {
 
         const feed = await rssParser.parseURL(rssUrl);
         const now = Date.now();
-        const THREE_HOURS = 3 * 60 * 60 * 1000;
-        const SIX_HOURS = 6 * 60 * 60 * 1000;
+        const ONE_HOUR = 60 * 60 * 1000;
 
-        // Filter articles from the last 3 hours
+        // Apenas artigos da última 1 hora
         const recentArticles = feed.items.filter(item => {
             const pubDate = item.pubDate ? new Date(item.pubDate).getTime() : 0;
-            return (now - pubDate) < THREE_HOURS;
-        });
-
-        // Also count articles from the last 6 hours for context
-        const extendedArticles = feed.items.filter(item => {
-            const pubDate = item.pubDate ? new Date(item.pubDate).getTime() : 0;
-            return (now - pubDate) < SIX_HOURS;
+            return (now - pubDate) < ONE_HOUR;
         });
 
         const recentCount = recentArticles.length;
-        const extendedCount = extendedArticles.length;
 
+        // Se não há notícias na última hora → tudo ok
         let status = 'Verde';
         let description = undefined;
-        let latestArticle = recentArticles[0] || extendedArticles[0];
 
-        if (recentCount >= 6) {
+        if (recentCount >= 5) {
             status = 'Vermelho';
-            description = `${recentCount} notícias recentes relatam problemas.`;
-        } else if (recentCount >= 3) {
+            description = `${recentCount} notícias na última hora relatam problemas graves.`;
+        } else if (recentCount >= 2) {
             status = 'Amarelo';
-            description = `${recentCount} notícias recentes relatam instabilidade.`;
-        } else if (extendedCount >= 5) {
-            status = 'Amarelo';
-            description = `${extendedCount} notícias nas últimas 6h apontam problemas.`;
+            description = `${recentCount} notícias na última hora relatam instabilidade.`;
         }
-        
-        // Always surface the latest news if there is any, regardless of status
-        // Grab up to 3 unique news articles
-        const combinedArticles = [...recentArticles, ...extendedArticles];
+
+        // Exibe até 3 artigos únicos apenas se houver notícias recentes
         const uniqueUrls = new Set();
         const newsArticles = [];
-        
-        for (const article of combinedArticles) {
+
+        for (const article of recentArticles) {
             if (newsArticles.length >= 3) break;
             if (!uniqueUrls.has(article.link)) {
                 uniqueUrls.add(article.link);
@@ -222,7 +263,7 @@ async function fetchNewsSentiment(service) {
             }
         }
 
-        console.log(`[News] ${service.name}: ${recentCount} artigos (3h), ${extendedCount} artigos (6h) → ${status}`);
+        console.log(`[News] ${service.name}: ${recentCount} artigo(s) na última 1h → ${status}`);
 
         return {
             name: service.name,
@@ -230,7 +271,7 @@ async function fetchNewsSentiment(service) {
             status,
             lastUpdated: new Date().toISOString(),
             description,
-            reportCount: recentCount || extendedCount,
+            reportCount: recentCount,
             newsArticles: newsArticles.length > 0 ? newsArticles : undefined,
             link: ddLink
         };
@@ -246,6 +287,7 @@ async function fetchNewsSentiment(service) {
         };
     }
 }
+
 
 async function fetchAllStatuses(cache, notifyTelegramBot) {
     const promises = [

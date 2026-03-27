@@ -33,6 +33,13 @@ function notifyTelegramBot(serviceName, oldStatus, newStatus) {
     // Future implementation: Send HTTP request to Telegram Bot API
 }
 
+// Rota para forçar atualização imediata (limpa o cache)
+app.post('/api/refresh', (req, res) => {
+    cache.flushAll();
+    console.log('[CACHE] Cache limpo manualmente via /api/refresh');
+    res.json({ ok: true, message: 'Cache limpo. Próxima requisição buscará dados frescos.' });
+});
+
 app.get('/api/status', async (req, res) => {
     try {
         // Check cache first

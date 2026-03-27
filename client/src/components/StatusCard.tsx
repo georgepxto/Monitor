@@ -1,7 +1,7 @@
 import type { Service } from '../types';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CheckCircle2, AlertTriangle, XCircle, ExternalLink } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, XCircle, ExternalLink, Wrench } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -13,6 +13,7 @@ export function StatusCard({ service }: Props) {
   const isGreen = service.status === 'Verde';
   const isYellow = service.status === 'Amarelo';
   const isRed = service.status === 'Vermelho';
+  const isMaintenance = service.isMaintenance === true;
 
   let timeAgo = 'recentemente';
   try {
@@ -31,11 +32,13 @@ export function StatusCard({ service }: Props) {
         <div className={twMerge(
           "flex items-center justify-center p-2 rounded-full",
           isGreen && "bg-green-500/10 text-green-500",
-          isYellow && "bg-yellow-500/10 text-yellow-500",
+          isYellow && !isMaintenance && "bg-yellow-500/10 text-yellow-500",
+          isMaintenance && "bg-blue-500/10 text-blue-400",
           isRed && "bg-red-500/10 text-red-500"
         )}>
           {isGreen && <CheckCircle2 className="w-6 h-6" />}
-          {isYellow && <AlertTriangle className="w-6 h-6" />}
+          {isYellow && !isMaintenance && <AlertTriangle className="w-6 h-6" />}
+          {isMaintenance && <Wrench className="w-6 h-6" />}
           {isRed && <XCircle className="w-6 h-6" />}
         </div>
       </div>
@@ -45,11 +48,13 @@ export function StatusCard({ service }: Props) {
           <span className={clsx(
             "text-sm font-medium px-2.5 py-0.5 rounded-full border",
             isGreen && "bg-green-500/10 text-green-400 border-green-500/20",
-            isYellow && "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+            isYellow && !isMaintenance && "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+            isMaintenance && "bg-blue-500/10 text-blue-400 border-blue-500/20",
             isRed && "bg-red-500/10 text-red-400 border-red-500/20"
           )}>
             {isGreen && 'Operacional'}
-            {isYellow && 'Instabilidade'}
+            {isMaintenance && 'Manutenção'}
+            {isYellow && !isMaintenance && 'Instabilidade'}
             {isRed && 'Fora do Ar'}
           </span>
           {service.newsArticles && service.newsArticles.length > 0 && (
@@ -59,7 +64,17 @@ export function StatusCard({ service }: Props) {
           )}
         </div>
 
-        {(service.description || (service.newsArticles && service.newsArticles.length > 0)) && (!isGreen || (service.newsArticles && service.newsArticles.length > 0)) && (
+        {service.backofficeAlert && service.description && (
+          <div className="p-3 bg-orange-500/10 rounded-lg border border-orange-500/40 flex items-start gap-2">
+            <span className="text-lg leading-none mt-0.5">⚠️</span>
+            <div>
+              <p className="text-xs font-bold text-orange-400 uppercase tracking-wider mb-1">Alerta Operacional — Backoffice</p>
+              <p className="text-sm text-orange-200 leading-relaxed">{service.description.replace(/^⚠️\s*Backoffice:\s*/i, '').replace(/^⚠️\s*/i, '')}</p>
+            </div>
+          </div>
+        )}
+
+        {(service.description || (service.newsArticles && service.newsArticles.length > 0)) && (!isGreen || (service.newsArticles && service.newsArticles.length > 0)) && !service.backofficeAlert && (
           <div className="p-3 bg-gray-900/50 rounded-lg text-sm text-gray-300 border border-gray-700 flex flex-col gap-2">
             {service.description && !isGreen && (
               <p className="line-clamp-3 leading-relaxed">

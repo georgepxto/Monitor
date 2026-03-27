@@ -15,4 +15,6 @@ export interface Service {
     }[];
     error?: boolean;
     mocked?: boolean;
+    isMaintenance?: boolean;
+    backofficeAlert?: boolean;
 }

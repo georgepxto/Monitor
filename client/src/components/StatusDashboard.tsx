@@ -92,7 +92,7 @@ export function StatusDashboard() {
           <button 
             onClick={() => fetchStatuses(true)}
             disabled={refreshing}
-            className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-200 px-4 py-2.5 rounded-lg border border-gray-700 transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-200 px-4 py-2.5 rounded-lg border border-gray-700 transition-colors disabled:opacity-50 text-sm"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-green-400' : ''}`} />
             {refreshing ? 'Atualizando...' : 'Atualizar Agora'}
@@ -126,7 +126,7 @@ export function StatusDashboard() {
             <span className="ml-2 bg-gray-800 text-gray-400 text-xs px-2 py-1 rounded-full">{groupServices.length}</span>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-start">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {groupServices.map((service, idx) => (
               <StatusCard key={`${service.name}-${idx}`} service={service} />
             ))}

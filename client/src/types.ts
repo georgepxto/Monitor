@@ -17,4 +17,5 @@ export interface Service {
     mocked?: boolean;
     isMaintenance?: boolean;
     backofficeAlert?: boolean;
+    issueStartedAt?: string;
 }

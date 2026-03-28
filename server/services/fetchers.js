@@ -2,6 +2,9 @@ const axios = require('axios');
 const Parser = require('rss-parser');
 const rssParser = new Parser();
 
+// State for tracking when issues start
+const serviceState = new Map();
+
 // Group 1: Statuspage APIs
 const statuspageServices = [
     { name: 'Betconstruct', url: 'https://status.betconstruct.com/api/v2/status.json', group: 'Sistemas', checkBackoffice: true },
@@ -11,7 +14,7 @@ const statuspageServices = [
     { name: 'Cloudflare', url: 'https://www.cloudflarestatus.com/api/v2/status.json', group: 'Infraestrutura' }
 ];
 
-// Palavras-chave que indicam problemas críticos para a operação (backoffice)
+
 const CRITICAL_KEYWORDS = ['backoffice', 'back office', 'back-office'];
 
 function hasBackofficeKeyword(text) {
@@ -305,13 +308,35 @@ async function fetchAllStatuses(cache, notifyTelegramBot) {
 
     const results = await Promise.all(promises);
 
-    // Check for status changes to trigger Telegram notifications
+    // Check for status changes to trigger Telegram notifications & track issue duration
     const previousStatuses = cache.get('last_known_statuses') || {};
     const newKnownStatuses = {};
 
     results.forEach(service => {
         newKnownStatuses[service.name] = service.status;
         const oldStatus = previousStatuses[service.name];
+        
+        let stateObj = serviceState.get(service.name) || {
+            status: service.status,
+            issueStartedAt: service.status !== 'Verde' ? new Date().toISOString() : null
+        };
+        
+        // Se mudou o status na memória interna que estávamos guardando...
+        if (stateObj.status !== service.status) {
+            stateObj.status = service.status;
+            if (service.status !== 'Verde') {
+                stateObj.issueStartedAt = new Date().toISOString();
+            } else {
+                stateObj.issueStartedAt = null;
+            }
+        }
+        serviceState.set(service.name, stateObj);
+
+        // Se estiver com problema, repassa o start time pra frente
+        if (service.status !== 'Verde' && stateObj.issueStartedAt) {
+            service.issueStartedAt = stateObj.issueStartedAt;
+        }
+
         if (oldStatus && oldStatus === 'Verde' && service.status !== 'Verde') {
             notifyTelegramBot(service.name, oldStatus, service.status);
         } else if (oldStatus && oldStatus !== 'Verde' && service.status === 'Verde') {

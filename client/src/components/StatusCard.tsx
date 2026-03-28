@@ -1,7 +1,7 @@
 import type { Service } from '../types';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CheckCircle2, AlertTriangle, XCircle, ExternalLink, Wrench } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, XCircle, ExternalLink, Wrench, Clock, Newspaper, AlertOctagon } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -16,17 +16,25 @@ export function StatusCard({ service }: Props) {
   const isMaintenance = service.isMaintenance === true;
 
   let timeAgo = 'recentemente';
+  let issueDuration = '';
+
   try {
     timeAgo = formatDistanceToNow(parseISO(service.lastUpdated), { 
       addSuffix: true, 
       locale: ptBR 
     });
+
+    if (service.issueStartedAt && service.status !== 'Verde') {
+      issueDuration = formatDistanceToNow(parseISO(service.issueStartedAt), {
+        locale: ptBR
+      });
+    }
   } catch (e) {
     // Falha de parse (se vier data que o backend falhou em processar)
   }
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 shadow-lg flex flex-col justify-between hover:shadow-xl transition-all duration-300 hover:border-gray-600">
+    <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 shadow-lg flex flex-col justify-between hover:shadow-xl transition-all duration-300 hover:border-gray-600 h-full">
       <div className="flex items-start justify-between mb-4">
         <h3 className="font-semibold text-gray-100 text-lg">{service.name}</h3>
         <div className={twMerge(
@@ -43,7 +51,7 @@ export function StatusCard({ service }: Props) {
         </div>
       </div>
       
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
           <span className={clsx(
             "text-sm font-medium px-2.5 py-0.5 rounded-full border",
@@ -57,16 +65,23 @@ export function StatusCard({ service }: Props) {
             {isYellow && !isMaintenance && 'Instabilidade'}
             {isRed && 'Fora do Ar'}
           </span>
+          {issueDuration && (
+            <span className="text-xs font-medium px-2 py-0.5 rounded-full border bg-gray-900/50 text-gray-300 border-gray-600 flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              <span>Há {issueDuration}</span>
+            </span>
+          )}
           {service.newsArticles && service.newsArticles.length > 0 && (
-            <span className="text-xs text-gray-400 bg-gray-900/50 px-2 py-0.5 rounded-full border border-gray-700">
-              📰 {service.newsArticles.length} destacada{service.newsArticles.length > 1 ? 's' : ''}
+            <span className="text-xs text-gray-400 bg-gray-900/50 px-2 py-0.5 rounded-full border border-gray-700 flex items-center gap-1">
+              <Newspaper className="w-3 h-3" />
+              <span>{service.newsArticles.length} destacada{service.newsArticles.length > 1 ? 's' : ''}</span>
             </span>
           )}
         </div>
 
         {service.backofficeAlert && service.description && (
           <div className="p-3 bg-orange-500/10 rounded-lg border border-orange-500/40 flex items-start gap-2">
-            <span className="text-lg leading-none mt-0.5">⚠️</span>
+            <AlertOctagon className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-xs font-bold text-orange-400 uppercase tracking-wider mb-1">Alerta Operacional — Backoffice</p>
               <p className="text-sm text-orange-200 leading-relaxed">{service.description.replace(/^⚠️\s*Backoffice:\s*/i, '').replace(/^⚠️\s*/i, '')}</p>
@@ -107,7 +122,7 @@ export function StatusCard({ service }: Props) {
           </div>
         )}
 
-        <div className="flex items-center justify-between mt-1 pt-2 border-t border-gray-800/50">
+        <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-800/50">
           <span className="text-xs text-gray-400">
             Atualizado {timeAgo}
             {service.mocked && ' (Mock)'}
@@ -117,11 +132,11 @@ export function StatusCard({ service }: Props) {
               href={service.link} 
               target="_blank" 
               rel="noopener noreferrer"
-              className="text-gray-400 hover:text-gray-200 transition-colors flex items-center gap-1.5 text-xs font-medium bg-gray-900/50 px-2 py-1 rounded"
+              className="text-gray-400 hover:text-gray-200 transition-colors flex items-center gap-1.5 text-xs font-medium bg-gray-900/50 px-2 py-1 rounded shrink-0 whitespace-nowrap ml-2"
               title="Acessar página de status"
             >
               <span>Acessar Fonte</span>
-              <ExternalLink className="w-3.5 h-3.5" />
+              <ExternalLink className="w-3.5 h-3.5 shrink-0" />
             </a>
           )}
         </div>

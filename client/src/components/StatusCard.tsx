@@ -1,7 +1,7 @@
 import type { Service } from '../types';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CheckCircle2, AlertTriangle, XCircle, ExternalLink, Wrench, Clock, Newspaper, AlertOctagon } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, XCircle, ExternalLink, Wrench, Clock, Newspaper, AlertOctagon, History } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -17,6 +17,7 @@ export function StatusCard({ service }: Props) {
 
   let timeAgo = 'recentemente';
   let issueDuration = '';
+  let operationalDuration = '';
 
   try {
     timeAgo = formatDistanceToNow(parseISO(service.lastUpdated), { 
@@ -26,6 +27,10 @@ export function StatusCard({ service }: Props) {
 
     if (service.issueStartedAt && service.status !== 'Verde') {
       issueDuration = formatDistanceToNow(parseISO(service.issueStartedAt), {
+        locale: ptBR
+      });
+    } else if (service.operationalSince && service.status === 'Verde') {
+      operationalDuration = formatDistanceToNow(parseISO(service.operationalSince), {
         locale: ptBR
       });
     }
@@ -69,6 +74,12 @@ export function StatusCard({ service }: Props) {
             <span className="text-xs font-medium px-2 py-0.5 rounded-full border bg-gray-900/50 text-gray-300 border-gray-600 flex items-center gap-1">
               <Clock className="w-3 h-3" />
               <span>Há {issueDuration}</span>
+            </span>
+          )}
+          {operationalDuration && isGreen && (
+            <span className="text-xs font-medium px-2 py-0.5 rounded-full border bg-gray-900/50 text-gray-300 border-gray-600 flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              <span>Há {operationalDuration}</span>
             </span>
           )}
           {service.newsArticles && service.newsArticles.length > 0 && (
@@ -122,23 +133,37 @@ export function StatusCard({ service }: Props) {
           </div>
         )}
 
-        <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-800/50">
-          <span className="text-xs text-gray-400">
+        <div className="flex flex-wrap items-center justify-between gap-3 mt-auto pt-4 border-t border-gray-800/50">
+          <span className="text-xs text-gray-400 whitespace-nowrap">
             Atualizado {timeAgo}
             {service.mocked && ' (Mock)'}
           </span>
-          {service.link && (
-            <a 
-              href={service.link} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-gray-400 hover:text-gray-200 transition-colors flex items-center gap-1.5 text-xs font-medium bg-gray-900/50 px-2 py-1 rounded shrink-0 whitespace-nowrap ml-2"
-              title="Acessar página de status"
-            >
-              <span>Acessar Fonte</span>
-              <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-            </a>
-          )}
+          <div className="flex flex-wrap gap-2 ml-auto">
+            {service.historyLink && (
+              <a 
+                href={service.historyLink} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-gray-200 transition-colors flex items-center gap-1.5 text-xs font-medium bg-gray-900/50 px-2 py-1 rounded shrink-0 whitespace-nowrap"
+                title="Histórico de incidentes"
+              >
+                <History className="w-3 h-3 shrink-0" />
+                <span>Histórico</span>
+              </a>
+            )}
+            {service.link && (
+              <a 
+                href={service.link} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-gray-200 transition-colors flex items-center gap-1.5 text-xs font-medium bg-gray-900/50 px-2 py-1 rounded shrink-0 whitespace-nowrap"
+                title="Acessar página de status"
+              >
+                <span>Acessar Fonte</span>
+                <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+              </a>
+            )}
+          </div>
         </div>
       </div>
     </div>

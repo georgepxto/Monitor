@@ -2,7 +2,7 @@ const axios = require('axios');
 const Parser = require('rss-parser');
 const rssParser = new Parser();
 
-// State for tracking when issues start
+
 const serviceState = new Map();
 
 // Group 1: Statuspage APIs
@@ -38,6 +38,7 @@ async function fetchStatuspage(service) {
         const indicator = data.status.indicator;
         let status = mapStatuspageStatus(indicator);
         const link = data.page.url || service.url.replace('/api/v2/status.json', '');
+        const historyLink = link.replace(/\/$/, '') + '/history';
 
         let description = undefined;
         let backofficeAlert = undefined;
@@ -98,6 +99,7 @@ async function fetchStatuspage(service) {
             description: backofficeAlert || description,
             backofficeAlert: !!backofficeAlert,
             link,
+            historyLink,
             isMaintenance: indicator === 'maintenance'
         };
     } catch (error) {
@@ -318,7 +320,8 @@ async function fetchAllStatuses(cache, notifyTelegramBot) {
         
         let stateObj = serviceState.get(service.name) || {
             status: service.status,
-            issueStartedAt: service.status !== 'Verde' ? new Date().toISOString() : null
+            issueStartedAt: service.status !== 'Verde' ? new Date().toISOString() : null,
+            operationalSince: service.status === 'Verde' ? new Date().toISOString() : null
         };
         
         // Se mudou o status na memória interna que estávamos guardando...
@@ -326,15 +329,19 @@ async function fetchAllStatuses(cache, notifyTelegramBot) {
             stateObj.status = service.status;
             if (service.status !== 'Verde') {
                 stateObj.issueStartedAt = new Date().toISOString();
+                stateObj.operationalSince = null;
             } else {
                 stateObj.issueStartedAt = null;
+                stateObj.operationalSince = new Date().toISOString();
             }
         }
         serviceState.set(service.name, stateObj);
 
-        // Se estiver com problema, repassa o start time pra frente
+        // Se estiver com problema, repassa o start time pra frente, senão passo o tempo que tá on
         if (service.status !== 'Verde' && stateObj.issueStartedAt) {
             service.issueStartedAt = stateObj.issueStartedAt;
+        } else if (service.status === 'Verde' && stateObj.operationalSince) {
+            service.operationalSince = stateObj.operationalSince;
         }
 
         if (oldStatus && oldStatus === 'Verde' && service.status !== 'Verde') {

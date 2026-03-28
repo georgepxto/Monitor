@@ -18,4 +18,6 @@ export interface Service {
     isMaintenance?: boolean;
     backofficeAlert?: boolean;
     issueStartedAt?: string;
+    operationalSince?: string;
+    historyLink?: string;
 }

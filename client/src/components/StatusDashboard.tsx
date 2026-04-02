@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import axios from 'axios';
 import type { Service } from '../types';
 import { StatusCard } from './StatusCard';
@@ -13,6 +13,13 @@ export function StatusDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [showGlossary, setShowGlossary] = useState(false);
   const [selectedHistoryService, setSelectedHistoryService] = useState<string | null>(null);
+  const prevStatusRef = useRef<Record<string, string>>({});
+
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, []);
 
   const fetchStatuses = useCallback(async (isRefresh = false) => {
     try {
@@ -27,7 +34,27 @@ export function StatusDashboard() {
       setError(null);
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
       const response = await axios.get(`${API_URL}/api/status`);
-      setServices(response.data);
+      const fetchedServices: Service[] = response.data;
+
+      // Notification Logic
+      const targetedServices = ['Livechat', 'Betconstruct', 'Legitimuz'];
+      fetchedServices.forEach(service => {
+        if (targetedServices.includes(service.name)) {
+          const prevStatus = prevStatusRef.current[service.name];
+          // Se o status anterior era Verde e agora mudou para algo diferente, notifica
+          if (prevStatus && prevStatus === 'Verde' && service.status !== 'Verde') {
+            if ('Notification' in window && Notification.permission === 'granted') {
+              new window.Notification(`⚠️ Problema Detectado: ${service.name}`, {
+                body: `O serviço ${service.name} reportou um problema. Status atual: ${service.status}.`,
+              });
+            }
+          }
+        }
+        // Atualiza a referência
+        prevStatusRef.current[service.name] = service.status;
+      });
+
+      setServices(fetchedServices);
     } catch (err) {
       console.error('Failed to fetch statuses', err);
       setError('Não foi possível carregar o status dos serviços. O servidor pode estar offline.');

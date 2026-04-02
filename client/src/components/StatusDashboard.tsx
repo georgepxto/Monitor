@@ -3,6 +3,7 @@ import axios from 'axios';
 import type { Service } from '../types';
 import { StatusCard } from './StatusCard';
 import { GlossaryModal } from './GlossaryModal';
+import { HistoryModal } from './HistoryModal';
 import { RefreshCw, Activity, Server, Building2, AlertCircle, BookOpen } from 'lucide-react';
 
 export function StatusDashboard() {
@@ -11,6 +12,7 @@ export function StatusDashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showGlossary, setShowGlossary] = useState(false);
+  const [selectedHistoryService, setSelectedHistoryService] = useState<string | null>(null);
 
   const fetchStatuses = useCallback(async (isRefresh = false) => {
     try {
@@ -128,7 +130,11 @@ export function StatusDashboard() {
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {groupServices.map((service, idx) => (
-              <StatusCard key={`${service.name}-${idx}`} service={service} />
+              <StatusCard 
+                key={`${service.name}-${idx}`} 
+                service={service} 
+                onShowHistory={(s) => setSelectedHistoryService(s.name)}
+              />
             ))}
           </div>
         </div>
@@ -136,6 +142,12 @@ export function StatusDashboard() {
     </div>
 
     {showGlossary && <GlossaryModal onClose={() => setShowGlossary(false)} />}
+    {selectedHistoryService && (
+      <HistoryModal 
+        serviceName={selectedHistoryService} 
+        onClose={() => setSelectedHistoryService(null)} 
+      />
+    )}
     </>
   );
 }

@@ -37,7 +37,7 @@ const STATUS_GLOSSARY = [
   },
 ];
 
-const BC_GLOSSARY = [
+export const BC_GLOSSARY = [
   {
     component: 'Backoffice / BackOffice Panel',
     impact: 'CRÍTICO',

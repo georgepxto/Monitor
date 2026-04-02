@@ -20,4 +20,26 @@ export interface Service {
     issueStartedAt?: string;
     operationalSince?: string;
     historyLink?: string;
+    activeIncidents?: {
+        name: string;
+        description: string;
+    }[];
+}
+
+export interface IncidentUpdate {
+    id: string;
+    body: string;
+    status: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface IncidentHistoryItem {
+    id: string;
+    name: string;
+    status: string;
+    created_at: string;
+    resolved_at: string | null;
+    impact: string;
+    incident_updates: IncidentUpdate[];
 }

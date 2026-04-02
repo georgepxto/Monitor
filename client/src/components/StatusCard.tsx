@@ -4,12 +4,14 @@ import { ptBR } from 'date-fns/locale';
 import { CheckCircle2, AlertTriangle, XCircle, ExternalLink, Wrench, Clock, Newspaper, AlertOctagon, History } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { BC_GLOSSARY } from './GlossaryModal';
 
 interface Props {
   service: Service;
+  onShowHistory?: (service: Service) => void;
 }
 
-export function StatusCard({ service }: Props) {
+export function StatusCard({ service, onShowHistory }: Props) {
   const isGreen = service.status === 'Verde';
   const isYellow = service.status === 'Amarelo';
   const isRed = service.status === 'Vermelho';
@@ -90,21 +92,59 @@ export function StatusCard({ service }: Props) {
           )}
         </div>
 
-        {service.backofficeAlert && service.description && (
+        {service.backofficeAlert && (
           <div className="p-3 bg-orange-500/10 rounded-lg border border-orange-500/40 flex items-start gap-2">
             <AlertOctagon className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-xs font-bold text-orange-400 uppercase tracking-wider mb-1">Alerta Operacional — Backoffice</p>
-              <p className="text-sm text-orange-200 leading-relaxed">{service.description.replace(/^⚠️\s*Backoffice:\s*/i, '').replace(/^⚠️\s*/i, '')}</p>
+              <p className="text-xs font-bold text-orange-400 uppercase tracking-wider mb-1">Alerta Operacional Crítico</p>
+              <p className="text-[11px] text-orange-200 leading-relaxed">Incidentes atuais podem impactar operações severamente. Siga as recomendações abaixo.</p>
             </div>
           </div>
         )}
 
-        {(service.description || (service.newsArticles && service.newsArticles.length > 0)) && (!isGreen || (service.newsArticles && service.newsArticles.length > 0)) && !service.backofficeAlert && (
+        {(service.description || (service.activeIncidents && service.activeIncidents.length > 0) || (service.newsArticles && service.newsArticles.length > 0)) && (!isGreen || (service.newsArticles && service.newsArticles.length > 0)) && (
           <div className="p-3 bg-gray-900/50 rounded-lg text-sm text-gray-300 border border-gray-700 flex flex-col gap-2">
-            {service.description && !isGreen && (
+            {service.activeIncidents && service.activeIncidents.length > 0 && !isGreen ? (
+              <div className="flex flex-col gap-3">
+                {service.activeIncidents.map((incident, idx) => {
+                  const matchingGlossaryItems = service.name === 'Betconstruct' || service.name.includes('Betconstruct')
+                    ? BC_GLOSSARY.filter(g => {
+                        const keywords = g.component.split('/').map(k => k.trim().toLowerCase());
+                        const searchStr = `${incident.name} ${incident.description || ''}`.toLowerCase();
+                        return keywords.some(k => searchStr.includes(k));
+                      })
+                    : [];
+
+                  return (
+                  <div key={idx} className="flex flex-col gap-1 pb-3 mb-1 border-b border-gray-700/50 last:border-0 last:pb-0 last:mb-0">
+                    <p className="font-semibold text-gray-200">{incident.name}</p>
+                    {incident.description && <p className="line-clamp-3 leading-relaxed text-xs">{incident.description}</p>}
+                    
+                    {matchingGlossaryItems.length > 0 && (
+                      <div className="mt-2 space-y-2">
+                        {matchingGlossaryItems.map((match, i) => (
+                           <div key={i} className="bg-gray-800/80 rounded p-2.5 border border-gray-700">
+                             <div className="flex items-center gap-2 mb-2 flex-wrap">
+                               <span className="text-xs font-bold text-gray-300">{match.component}</span>
+                               <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${match.impactColor}`}>
+                                 {match.impact}
+                               </span>
+                             </div>
+                             <div className="pt-2 border-t border-gray-700/50">
+                               <span className="block text-[10px] font-bold text-green-400 uppercase tracking-wider mb-1">O que fazer:</span>
+                               <p className="text-xs text-gray-400 leading-relaxed">{match.whatToDo}</p>
+                             </div>
+                           </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  );
+                })}
+              </div>
+            ) : service.description && !isGreen && (
               <p className="line-clamp-3 leading-relaxed">
-                {service.description}
+                {service.description.replace(/^⚠️\s*Backoffice:\s*/i, '').replace(/^⚠️\s*/i, '')}
               </p>
             )}
             {service.newsArticles && service.newsArticles.length > 0 && (
@@ -139,17 +179,15 @@ export function StatusCard({ service }: Props) {
             {service.mocked && ' (Mock)'}
           </span>
           <div className="flex flex-wrap gap-2 ml-auto">
-            {service.historyLink && (
-              <a 
-                href={service.historyLink} 
-                target="_blank" 
-                rel="noopener noreferrer"
+            {service.historyLink && onShowHistory && (
+              <button 
+                onClick={() => onShowHistory(service)}
                 className="text-gray-400 hover:text-gray-200 transition-colors flex items-center gap-1.5 text-xs font-medium bg-gray-900/50 px-2 py-1 rounded shrink-0 whitespace-nowrap"
                 title="Histórico de incidentes"
               >
                 <History className="w-3 h-3 shrink-0" />
                 <span>Histórico</span>
-              </a>
+              </button>
             )}
             {service.link && (
               <a 

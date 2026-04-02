@@ -65,6 +65,17 @@ async function fetchStatuspage(service) {
             description = data.status.description;
         }
 
+        let activeIncidents = undefined;
+        if (data.incidents && data.incidents.length > 0 && status !== 'Verde') {
+            activeIncidents = data.incidents.map(inc => {
+                const latestUpdate = inc.incident_updates?.[0];
+                return {
+                    name: inc.name,
+                    description: latestUpdate ? latestUpdate.body : ''
+                };
+            });
+        }
+
         // --- Detecção de incidentes relacionados ao Backoffice ---
         // Mesmo que o status geral seja Verde, verifica se há algum incident ativo
         // que mencione backoffice no nome ou nos componentes afetados.
@@ -97,6 +108,7 @@ async function fetchStatuspage(service) {
             status,
             lastUpdated: data.page.updated_at || new Date().toISOString(),
             description: backofficeAlert || description,
+            activeIncidents,
             backofficeAlert: !!backofficeAlert,
             link,
             historyLink,
@@ -356,5 +368,6 @@ async function fetchAllStatuses(cache, notifyTelegramBot) {
 }
 
 module.exports = {
-    fetchAllStatuses
+    fetchAllStatuses,
+    statuspageServices
 };

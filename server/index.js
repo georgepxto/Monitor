@@ -1,7 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const NodeCache = require('node-cache');
-const { fetchAllStatuses } = require('./services/fetchers');
+const { fetchAllStatuses, statuspageServices } = require('./services/fetchers');
+const axios = require('axios');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -58,6 +59,35 @@ app.get('/api/status', async (req, res) => {
     } catch (error) {
         console.error('Error fetching statuses:', error);
         res.status(500).json({ error: 'Internal server error while fetching statuses' });
+    }
+});
+
+app.get('/api/history/:serviceName', async (req, res) => {
+    const serviceName = req.params.serviceName;
+    const service = statuspageServices.find(s => s.name === serviceName);
+    
+    if (!service) {
+        return res.status(404).json({ error: 'Serviço não encontrado ou não suporta histórico via API.' });
+    }
+
+    try {
+        const incidentsUrl = service.url.replace('/status.json', '/incidents.json');
+        const response = await axios.get(incidentsUrl, { timeout: 8000 });
+        
+        // Retorna apenas os incidentes dos últimos 2 dias ou ainda ativos
+        let incidents = response.data.incidents || [];
+        
+        const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
+        incidents = incidents.filter(inc => {
+            const created = new Date(inc.created_at);
+            const resolved = inc.resolved_at ? new Date(inc.resolved_at) : new Date(); // se não resolvido, usa data atual
+            return created >= twoDaysAgo || resolved >= twoDaysAgo;
+        });
+
+        res.json(incidents);
+    } catch (error) {
+        console.error(`Error fetching history for ${serviceName}:`, error.message);
+        res.status(500).json({ error: 'Erro ao buscar histórico de incidentes.' });
     }
 });
 

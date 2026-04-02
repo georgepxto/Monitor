@@ -41,7 +41,7 @@ export function StatusCard({ service, onShowHistory }: Props) {
   }
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 shadow-lg flex flex-col justify-between hover:shadow-xl transition-all duration-300 hover:border-gray-600 h-full">
+    <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 shadow-lg flex flex-col justify-between hover:shadow-xl transition-all duration-300 hover:border-gray-600">
       <div className="flex items-start justify-between mb-4">
         <h3 className="font-semibold text-gray-100 text-lg">{service.name}</h3>
         <div className={twMerge(

@@ -71,7 +71,7 @@ app.get('/api/history/:serviceName', async (req, res) => {
     }
 
     try {
-        const incidentsUrl = service.url.replace('/status.json', '/incidents.json');
+        const incidentsUrl = service.url.replace('/api/v2/status.json', '/api/v2/incidents.json');
         const response = await axios.get(incidentsUrl, { timeout: 8000 });
         
         // Retorna apenas os incidentes dos últimos 2 dias ou ainda ativos

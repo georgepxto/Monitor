@@ -62,7 +62,9 @@ export function HistoryModal({ serviceName, onClose }: Props) {
             </div>
           ) : incidents.length === 0 ? (
             <div className="text-center py-12 text-gray-400 border border-gray-800 rounded-xl border-dashed">
-              Nenhum incidente registrado recentemente.
+              <div className="text-2xl mb-2">✅</div>
+              <p className="font-medium text-gray-300">Nenhum incidente nos últimos 2 dias</p>
+              <p className="text-sm mt-1">Este serviço operou normalmente no período.</p>
             </div>
           ) : (
             <div className="space-y-4">

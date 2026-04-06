@@ -10,6 +10,7 @@ const statuspageServices = [
     { name: 'Betconstruct', url: 'https://status.betconstruct.com/api/v2/status.json', group: 'Sistemas', checkBackoffice: true },
     { name: 'Livechat', url: 'https://status.livechat.com/api/v2/status.json', group: 'Sistemas' },
     { name: 'BTG Pactual Empresas', url: 'https://status.empresas.btgpactual.com/api/v2/status.json', group: 'Bancos' },
+    { name: 'StarkBank', url: 'https://status.starkbank.com/api/v2/status.json', group: 'Bancos' },
     { name: 'Legitimuz', url: 'https://legitimuz.statuspage.io/api/v2/status.json', group: 'Sistemas' },
     { name: 'Cloudflare', url: 'https://www.cloudflarestatus.com/api/v2/status.json', group: 'Infraestrutura' }
 ];

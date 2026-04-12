@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const NodeCache = require('node-cache');
@@ -9,6 +10,27 @@ const port = process.env.PORT || 3001;
 
 // Initialize cache with 2 minutes standard TTL
 const cache = new NodeCache({ stdTTL: 120 });
+
+// Chave secreta para endpoints administrativos (defina ADMIN_KEY no .env)
+const ADMIN_KEY = process.env.ADMIN_KEY;
+
+// Middleware: valida API key nos endpoints sensíveis
+function requireAdminKey(req, res, next) {
+    if (!ADMIN_KEY) {
+        // Se não configurada, bloqueia em produção, libera apenas em localhost
+        const isLocal = req.hostname === 'localhost' || req.hostname === '127.0.0.1';
+        if (!isLocal) return res.status(403).json({ error: 'Endpoint desabilitado em produção.' });
+        return next();
+    }
+    const key = req.headers['x-admin-key'] || req.body?.adminKey;
+    if (key !== ADMIN_KEY) {
+        return res.status(401).json({ error: 'Não autorizado.' });
+    }
+    next();
+}
+
+// Limite de conexões SSE simultâneas
+const SSE_MAX_CLIENTS = 50;
 
 const allowedOrigins = [
     'http://localhost:5173',
@@ -32,6 +54,10 @@ app.use(express.json());
 let sseClients = [];
 
 app.get('/api/events', (req, res) => {
+    if (sseClients.length >= SSE_MAX_CLIENTS) {
+        return res.status(503).json({ error: 'Muitas conexões ativas. Tente novamente mais tarde.' });
+    }
+
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
@@ -41,7 +67,7 @@ app.get('/api/events', (req, res) => {
 
     // Keep-alive para a conexão do navegador não fechar por timeout
     const keepAlive = setInterval(() => {
-        res.write(': keep-\n\n');
+        res.write(': keep-alive\n\n');
     }, 20000);
 
     req.on('close', () => {
@@ -68,18 +94,25 @@ function notifyTelegramBot(serviceName, oldStatus, newStatus) {
     sseClients.forEach(client => client.write(payload));
 }
 
-// Rota para forçar atualização imediata (limpa o cache)
-app.post('/api/refresh', (req, res) => {
+// Rota para forçar atualização imediata (limpa o cache) — protegida
+app.post('/api/refresh', requireAdminKey, (req, res) => {
     cache.flushAll();
     console.log('[CACHE] Cache limpo manualmente via /api/refresh');
     res.json({ ok: true, message: 'Cache limpo. Próxima requisição buscará dados frescos.' });
 });
 
-// Endpoint EXCLUSIVO de desenvolvimento para testar o painel/notificação
-app.post('/api/test-notification', (req, res) => {
-    const { serviceName, oldStatus, newStatus } = req.body;
-    notifyTelegramBot(serviceName || 'App de Teste', oldStatus || 'Verde', newStatus || 'Vermelho');
-    res.json({ ok: true, message: 'Notificação de teste gerada no terminal.' });
+// Endpoint EXCLUSIVO de desenvolvimento para testar notificações — protegido
+const VALID_STATUSES = ['Verde', 'Amarelo', 'Vermelho', 'Azul', 'Cinza'];
+app.post('/api/test-notification', requireAdminKey, (req, res) => {
+    let { serviceName, oldStatus, newStatus } = req.body;
+
+    // Sanitização básica de inputs
+    serviceName = typeof serviceName === 'string' ? serviceName.slice(0, 100) : 'App de Teste';
+    oldStatus = VALID_STATUSES.includes(oldStatus) ? oldStatus : 'Verde';
+    newStatus = VALID_STATUSES.includes(newStatus) ? newStatus : 'Vermelho';
+
+    notifyTelegramBot(serviceName, oldStatus, newStatus);
+    res.json({ ok: true, message: 'Notificação de teste gerada.' });
 });
 
 app.get('/api/status', async (req, res) => {

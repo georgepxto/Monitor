@@ -15,7 +15,8 @@ export function StatusCard({ service, onShowHistory }: Props) {
   const isGreen = service.status === 'Verde';
   const isYellow = service.status === 'Amarelo';
   const isRed = service.status === 'Vermelho';
-  const isMaintenance = service.isMaintenance === true;
+  const isBlue = service.status === 'Azul';
+  const isMaintenance = service.isMaintenance === true || isBlue;
 
   let timeAgo = 'recentemente';
   let issueDuration = '';

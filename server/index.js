@@ -28,10 +28,44 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Telegram Bot Stub/Mock
+// Clientes conectados via SSE (Server-Sent Events)
+let sseClients = [];
+
+app.get('/api/events', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    sseClients.push(res);
+
+    // Keep-alive para a conexão do navegador não fechar por timeout
+    const keepAlive = setInterval(() => {
+        res.write(': keep-\n\n');
+    }, 20000);
+
+    req.on('close', () => {
+        clearInterval(keepAlive);
+        sseClients = sseClients.filter(c => c !== res);
+    });
+});
+
+// Telegram Bot Stub/Mock e Push Notifications
 function notifyTelegramBot(serviceName, oldStatus, newStatus) {
-    console.log(`[TELEGRAM ALERT 🚨] Service ${serviceName} changed status from ${oldStatus} to ${newStatus}`);
+    let emoji = '🚨';
+    if (newStatus === 'Verde') emoji = '✅';
+    else if (newStatus === 'Amarelo') emoji = '⚠️';
+    else if (newStatus === 'Azul') emoji = '🔧';
+
+    console.log(`[TELEGRAM ALERT ${emoji}] Service ${serviceName} changed status from ${oldStatus} to ${newStatus}`);
     // Future implementation: Send HTTP request to Telegram Bot API
+
+    // Dispara notificação para os navegadores via Server-Sent Events
+    const title = `${emoji} Monitor Hub — ${serviceName}`;
+    const body = `Mudou de status: ${oldStatus} ➡️ ${newStatus}`;
+    const payload = `data: ${JSON.stringify({ title, body, newStatus })}\n\n`;
+    
+    sseClients.forEach(client => client.write(payload));
 }
 
 // Rota para forçar atualização imediata (limpa o cache)
@@ -39,6 +73,13 @@ app.post('/api/refresh', (req, res) => {
     cache.flushAll();
     console.log('[CACHE] Cache limpo manualmente via /api/refresh');
     res.json({ ok: true, message: 'Cache limpo. Próxima requisição buscará dados frescos.' });
+});
+
+// Endpoint EXCLUSIVO de desenvolvimento para testar o painel/notificação
+app.post('/api/test-notification', (req, res) => {
+    const { serviceName, oldStatus, newStatus } = req.body;
+    notifyTelegramBot(serviceName || 'App de Teste', oldStatus || 'Verde', newStatus || 'Vermelho');
+    res.json({ ok: true, message: 'Notificação de teste gerada no terminal.' });
 });
 
 app.get('/api/status', async (req, res) => {

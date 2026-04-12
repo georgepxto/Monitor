@@ -27,7 +27,7 @@ function hasBackofficeKeyword(text) {
 function mapStatuspageStatus(indicator) {
     if (indicator === 'none') return 'Verde';
     if (indicator === 'minor') return 'Amarelo';
-    if (indicator === 'maintenance') return 'Amarelo'; // Manutenção programada ≠ queda
+    if (indicator === 'maintenance') return 'Azul'; // Manutenção programada
     return 'Vermelho';
 }
 
@@ -357,9 +357,7 @@ async function fetchAllStatuses(cache, notifyTelegramBot) {
             service.operationalSince = stateObj.operationalSince;
         }
 
-        if (oldStatus && oldStatus === 'Verde' && service.status !== 'Verde') {
-            notifyTelegramBot(service.name, oldStatus, service.status);
-        } else if (oldStatus && oldStatus !== 'Verde' && service.status === 'Verde') {
+        if (oldStatus && oldStatus !== service.status) {
             notifyTelegramBot(service.name, oldStatus, service.status);
         }
     });

@@ -1,4 +1,4 @@
-export type ServiceStatus = 'Verde' | 'Amarelo' | 'Vermelho';
+export type ServiceStatus = 'Verde' | 'Amarelo' | 'Vermelho' | 'Azul';
 
 export interface Service {
     name: string;

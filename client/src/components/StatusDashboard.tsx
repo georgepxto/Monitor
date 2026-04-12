@@ -74,6 +74,40 @@ export function StatusDashboard() {
     return () => clearInterval(interval);
   }, [fetchStatuses]);
 
+  // Listener para Web Push Notifications
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    const eventSource = new EventSource(`${API_URL}/api/events`);
+
+    eventSource.onmessage = (event) => {
+      console.log('🔔 [SSE] Evento Recebido:', event.data);
+      const data = JSON.parse(event.data);
+      
+      // Dispara notificação nativa do mac/windows
+      if ('Notification' in window) {
+        if (Notification.permission === 'granted') {
+          new Notification(data.title, { 
+            body: data.body,
+            icon: '/favicon.svg' // Usa o ícone correto em SVG
+          });
+        } else {
+          console.warn('Permissão de Notificação não concedida. Status atual:', Notification.permission);
+        }
+      }
+      
+      // Força a página a recarregar os status visualmente para ficarem atualizados junto da notificação
+      fetchStatuses(false);
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [fetchStatuses]);
+
   // Group services
   const groupedServices = services.reduce((acc, service) => {
     const group = service.group;

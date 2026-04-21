@@ -31,10 +31,25 @@ function mapStatuspageStatus(indicator) {
     return 'Vermelho';
 }
 
+function isTransientNetworkError(error) {
+    const code = error?.code;
+    const message = (error?.message || '').toLowerCase();
+
+    return (
+        code === 'ECONNABORTED' ||
+        code === 'ETIMEDOUT' ||
+        code === 'ECONNRESET' ||
+        code === 'ENOTFOUND' ||
+        code === 'EAI_AGAIN' ||
+        message.includes('timeout') ||
+        message.includes('socket hang up')
+    );
+}
+
 async function fetchStatuspage(service) {
     try {
         const summaryUrl = service.url.replace('/status.json', '/summary.json');
-        const response = await axios.get(summaryUrl, { timeout: 8000 });
+        const response = await axios.get(summaryUrl, { timeout: 12000 });
         const data = response.data;
         const indicator = data.status.indicator;
         let status = mapStatuspageStatus(indicator);
@@ -117,10 +132,24 @@ async function fetchStatuspage(service) {
         };
     } catch (error) {
         console.error(`Error fetching ${service.name}:`, error.message);
+
+        const previousState = serviceState.get(service.name);
+        if (previousState && isTransientNetworkError(error)) {
+            return {
+                name: service.name,
+                group: service.group,
+                status: previousState.status,
+                lastUpdated: new Date().toISOString(),
+                description: `Falha temporária ao consultar status (${error.message}). Mantendo último status conhecido.`,
+                link: service.url.replace('/api/v2/status.json', ''),
+                error: true
+            };
+        }
+
         return {
             name: service.name,
             group: service.group,
-            status: 'Vermelho',
+            status: 'Amarelo',
             lastUpdated: new Date().toISOString(),
             description: `Falha ao conectar com a API de status: ${error.message}`,
             link: service.url.replace('/api/v2/status.json', ''),

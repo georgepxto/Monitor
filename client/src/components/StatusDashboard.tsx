@@ -25,11 +25,6 @@ export function StatusDashboard() {
     try {
       if (isRefresh) {
         setRefreshing(true);
-        // Limpa o cache do servidor para garantir dados frescos
-        try {
-          const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-          await axios.post(`${API_URL}/api/refresh`);
-        } catch (_) { /* silencia erro de cache clear */ }
       }
       setError(null);
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';

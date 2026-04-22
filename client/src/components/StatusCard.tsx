@@ -52,9 +52,9 @@ export function StatusCard({ service, onShowHistory, onShowMaintenance }: Props)
   }
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 min-h-[400px] shadow-lg flex flex-col justify-between hover:shadow-xl transition-all duration-300 hover:border-gray-600">
-      <div className="flex items-start justify-between mb-6">
-        <h3 className="font-semibold text-gray-100 text-2xl leading-tight">{service.name}</h3>
+    <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 min-h-[320px] shadow-lg flex flex-col justify-between hover:shadow-xl transition-all duration-300 hover:border-gray-600">
+      <div className="flex items-start justify-between mb-4">
+        <h3 className="font-semibold text-gray-100 text-xl leading-tight">{service.name}</h3>
         <div className={twMerge(
           "flex items-center justify-center p-2 rounded-full",
           isGreen && "bg-green-500/10 text-green-500",
@@ -71,7 +71,7 @@ export function StatusCard({ service, onShowHistory, onShowMaintenance }: Props)
         </div>
       </div>
       
-      <div className="flex flex-col gap-5 flex-1">
+      <div className="flex flex-col gap-3 flex-1">
         <div className="flex items-center gap-2.5 flex-wrap">
           <span className={clsx(
             "text-sm font-medium px-2.5 py-0.5 rounded-full border",

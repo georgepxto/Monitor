@@ -8,10 +8,12 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center shadow-lg shadow-green-500/20">
-                <span className="text-white font-bold text-lg">M</span>
-              </div>
-              <span className="font-bold text-xl tracking-tight hidden sm:block">Monitor<span className="text-green-500">Hub</span></span>
+                <img
+                  src="/favicon.svg"
+                  alt="Monitor Hub"
+                  className="w-8 h-8 rounded-lg object-contain"
+                />
+              <span className="font-bold text-lg sm:text-xl tracking-tight">Monitor<span className="text-green-500">Hub</span></span>
             </div>
           </div>
         </div>

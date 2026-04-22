@@ -18,6 +18,12 @@ const STATUS_GLOSSARY = [
     description: 'O serviço está com desempenho degradado ou funcionamento parcial. Pode haver lentidão, erros intermitentes ou funcionalidades específicas indisponíveis.',
   },
   {
+    icon: <AlertTriangle className="w-5 h-5 text-gray-300" />,
+    badge: { label: 'Fonte indisponível', color: 'bg-gray-500/10 text-gray-300 border-gray-500/20' },
+    title: 'Fonte Indisponível',
+    description: 'Não foi possível confirmar o status na fonte oficial (timeout/rede). Não significa necessariamente que o serviço está fora do ar.',
+  },
+  {
     icon: <Wrench className="w-5 h-5 text-blue-400" />,
     badge: { label: 'Manutenção', color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
     title: 'Manutenção Programada',

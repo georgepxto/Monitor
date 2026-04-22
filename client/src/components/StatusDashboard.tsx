@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import axios from 'axios';
 import type { Service } from '../types';
 import { StatusCard } from './StatusCard';
@@ -11,6 +11,9 @@ export function StatusDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<string>('Todos');
+  const [selectedStatus, setSelectedStatus] = useState<string>('Todos');
+  const [searchTerm, setSearchTerm] = useState('');
   const [showGlossary, setShowGlossary] = useState(false);
   const [selectedHistoryService, setSelectedHistoryService] = useState<string | null>(null);
   const prevStatusRef = useRef<Record<string, string>>({});
@@ -28,7 +31,11 @@ export function StatusDashboard() {
       }
       setError(null);
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-      const response = await axios.get(`${API_URL}/api/status`);
+      const response = await axios.get(`${API_URL}/api/status`, {
+        params: {
+          fresh: isRefresh ? '1' : '0',
+        },
+      });
       const fetchedServices: Service[] = response.data;
 
       // Notification Logic
@@ -36,8 +43,9 @@ export function StatusDashboard() {
       fetchedServices.forEach(service => {
         if (targetedServices.includes(service.name)) {
           const prevStatus = prevStatusRef.current[service.name];
+          const isOutageSignal = service.status !== 'Verde' && service.status !== 'Cinza' && !service.sourceUnavailable;
           // Se o status anterior era Verde e agora mudou para algo diferente, notifica
-          if (prevStatus && prevStatus === 'Verde' && service.status !== 'Verde') {
+          if (prevStatus && prevStatus === 'Verde' && isOutageSignal) {
             if ('Notification' in window && Notification.permission === 'granted') {
               new window.Notification(`⚠️ Problema Detectado: ${service.name}`, {
                 body: `O serviço ${service.name} reportou um problema. Status atual: ${service.status}.`,
@@ -95,7 +103,7 @@ export function StatusDashboard() {
       }
       
       // Força a página a recarregar os status visualmente para ficarem atualizados junto da notificação
-      fetchStatuses(false);
+      fetchStatuses(true);
     };
 
     return () => {
@@ -103,13 +111,61 @@ export function StatusDashboard() {
     };
   }, [fetchStatuses]);
 
-  // Group services
-  const groupedServices = services.reduce((acc, service) => {
-    const group = service.group;
-    if (!acc[group]) acc[group] = [];
-    acc[group].push(service);
-    return acc;
-  }, {} as Record<string, Service[]>);
+  const groupOptions = useMemo(() => {
+    const groups = Array.from(new Set(services.map((s) => s.group))).sort((a, b) => a.localeCompare(b));
+    return ['Todos', ...groups];
+  }, [services]);
+
+  const statusOptions = ['Todos', 'Vermelho', 'Amarelo', 'Azul', 'Verde', 'Cinza'];
+  const preferredGroupOrder = ['Sistemas', 'Bancos', 'Infraestrutura'];
+
+  const statusPriority: Record<string, number> = {
+    Vermelho: 4,
+    Amarelo: 3,
+    Azul: 2,
+    Verde: 1,
+    Cinza: 0,
+  };
+
+  const filteredServices = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
+    return services
+      .filter((service) => selectedGroup === 'Todos' || service.group === selectedGroup)
+      .filter((service) => selectedStatus === 'Todos' || service.status === selectedStatus)
+      .filter((service) => {
+        if (!normalizedSearch) return true;
+        return service.name.toLowerCase().includes(normalizedSearch);
+      })
+      .sort((a, b) => {
+        const priorityDiff = (statusPriority[b.status] ?? -1) - (statusPriority[a.status] ?? -1);
+        if (priorityDiff !== 0) return priorityDiff;
+        return a.name.localeCompare(b.name, 'pt-BR');
+      });
+  }, [services, selectedGroup, selectedStatus, searchTerm]);
+
+  // Group services after filtering/sorting
+  const groupedServices = useMemo(() => {
+    return filteredServices.reduce((acc, service) => {
+      const group = service.group;
+      if (!acc[group]) acc[group] = [];
+      acc[group].push(service);
+      return acc;
+    }, {} as Record<string, Service[]>);
+  }, [filteredServices]);
+
+  const orderedGroupEntries = useMemo(() => {
+    return Object.entries(groupedServices).sort(([groupA], [groupB]) => {
+      const indexA = preferredGroupOrder.indexOf(groupA);
+      const indexB = preferredGroupOrder.indexOf(groupB);
+
+      const normalizedA = indexA === -1 ? Number.MAX_SAFE_INTEGER : indexA;
+      const normalizedB = indexB === -1 ? Number.MAX_SAFE_INTEGER : indexB;
+
+      if (normalizedA !== normalizedB) return normalizedA - normalizedB;
+      return groupA.localeCompare(groupB, 'pt-BR');
+    });
+  }, [groupedServices]);
 
   if (loading) {
     return (
@@ -158,6 +214,46 @@ export function StatusDashboard() {
         </div>
       </div>
 
+      {/* Filters */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div>
+          <label className="block text-xs text-gray-400 mb-1">Grupo</label>
+          <select
+            value={selectedGroup}
+            onChange={(e) => setSelectedGroup(e.target.value)}
+            className="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/40"
+          >
+            {groupOptions.map((group) => (
+              <option key={group} value={group}>{group}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs text-gray-400 mb-1">Status</label>
+          <select
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+            className="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/40"
+          >
+            {statusOptions.map((status) => (
+              <option key={status} value={status}>{status}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs text-gray-400 mb-1">Buscar serviço</label>
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Ex: StarkBank"
+            className="w-full bg-gray-800 border border-gray-700 text-gray-200 rounded-lg px-3 py-2.5 text-sm placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500/40"
+          />
+        </div>
+      </div>
+
       {/* Disclaimer */}
       <div className="flex items-start gap-2.5 px-4 py-3 bg-gray-800/40 border border-gray-700/50 rounded-xl text-sm text-gray-400">
         <span className="text-yellow-500/80 mt-0.5 flex-shrink-0">⚠️</span>
@@ -174,7 +270,14 @@ export function StatusDashboard() {
         </div>
       )}
 
-      {!error && Object.entries(groupedServices).map(([groupName, groupServices]) => (
+      {!error && Object.keys(groupedServices).length === 0 && (
+        <div className="text-center py-10 border border-gray-800 rounded-xl border-dashed">
+          <p className="text-gray-300 font-medium">Nenhum serviço encontrado</p>
+          <p className="text-sm text-gray-500 mt-1">Ajuste os filtros ou a busca para ver resultados.</p>
+        </div>
+      )}
+
+      {!error && orderedGroupEntries.map(([groupName, groupServices]) => (
         <div key={groupName} className="space-y-4">
           <div className="flex items-center gap-2 border-b border-gray-800 pb-2">
             <div className="text-green-500">

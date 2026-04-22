@@ -1,4 +1,4 @@
-export type ServiceStatus = 'Verde' | 'Amarelo' | 'Vermelho' | 'Azul';
+export type ServiceStatus = 'Verde' | 'Amarelo' | 'Vermelho' | 'Azul' | 'Cinza';
 
 export interface Service {
     name: string;
@@ -19,6 +19,8 @@ export interface Service {
     backofficeAlert?: boolean;
     issueStartedAt?: string;
     operationalSince?: string;
+    lastConfirmedAt?: string;
+    sourceUnavailable?: boolean;
     historyLink?: string;
     activeIncidents?: {
         name: string;

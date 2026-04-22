@@ -1,7 +1,7 @@
 import type { Service } from '../types';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CheckCircle2, AlertTriangle, XCircle, ExternalLink, Wrench, Clock, Newspaper, AlertOctagon, History } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, XCircle, ExternalLink, Wrench, Clock, Newspaper, AlertOctagon, History, CloudOff } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { BC_GLOSSARY } from './GlossaryModal';
@@ -16,9 +16,11 @@ export function StatusCard({ service, onShowHistory }: Props) {
   const isYellow = service.status === 'Amarelo';
   const isRed = service.status === 'Vermelho';
   const isBlue = service.status === 'Azul';
+  const isGray = service.status === 'Cinza';
   const isMaintenance = service.isMaintenance === true || isBlue;
 
   let timeAgo = 'recentemente';
+  let confirmedAgo = '';
   let issueDuration = '';
   let operationalDuration = '';
 
@@ -27,6 +29,13 @@ export function StatusCard({ service, onShowHistory }: Props) {
       addSuffix: true, 
       locale: ptBR 
     });
+
+    if (service.lastConfirmedAt) {
+      confirmedAgo = formatDistanceToNow(parseISO(service.lastConfirmedAt), {
+        addSuffix: true,
+        locale: ptBR,
+      });
+    }
 
     if (service.issueStartedAt && service.status !== 'Verde') {
       issueDuration = formatDistanceToNow(parseISO(service.issueStartedAt), {
@@ -50,12 +59,14 @@ export function StatusCard({ service, onShowHistory }: Props) {
           isGreen && "bg-green-500/10 text-green-500",
           isYellow && !isMaintenance && "bg-yellow-500/10 text-yellow-500",
           isMaintenance && "bg-blue-500/10 text-blue-400",
-          isRed && "bg-red-500/10 text-red-500"
+          isRed && "bg-red-500/10 text-red-500",
+          isGray && "bg-gray-500/10 text-gray-400"
         )}>
           {isGreen && <CheckCircle2 className="w-6 h-6" />}
           {isYellow && !isMaintenance && <AlertTriangle className="w-6 h-6" />}
           {isMaintenance && <Wrench className="w-6 h-6" />}
           {isRed && <XCircle className="w-6 h-6" />}
+          {isGray && <CloudOff className="w-6 h-6" />}
         </div>
       </div>
       
@@ -66,12 +77,14 @@ export function StatusCard({ service, onShowHistory }: Props) {
             isGreen && "bg-green-500/10 text-green-400 border-green-500/20",
             isYellow && !isMaintenance && "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
             isMaintenance && "bg-blue-500/10 text-blue-400 border-blue-500/20",
-            isRed && "bg-red-500/10 text-red-400 border-red-500/20"
+            isRed && "bg-red-500/10 text-red-400 border-red-500/20",
+            isGray && "bg-gray-500/10 text-gray-300 border-gray-500/20"
           )}>
             {isGreen && 'Operacional'}
             {isMaintenance && 'Manutenção'}
             {isYellow && !isMaintenance && 'Instabilidade'}
             {isRed && 'Fora do Ar'}
+            {isGray && 'Fonte Indisponível'}
           </span>
           {issueDuration && (
             <span className="text-xs font-medium px-2 py-0.5 rounded-full border bg-gray-900/50 text-gray-300 border-gray-600 flex items-center gap-1">
@@ -175,10 +188,12 @@ export function StatusCard({ service, onShowHistory }: Props) {
         )}
 
         <div className="flex flex-wrap items-center justify-between gap-3 mt-auto pt-4 border-t border-gray-800/50">
-          <span className="text-xs text-gray-400 whitespace-nowrap">
-            Atualizado {timeAgo}
-            {service.mocked && ' (Mock)'}
-          </span>
+          <div className="text-xs text-gray-400">
+            <p className="whitespace-nowrap">Atualizado {timeAgo}{service.mocked && ' (Mock)'}</p>
+            {confirmedAgo && (
+              <p className="text-[11px] text-gray-500 mt-0.5 whitespace-nowrap">Última confirmação real {confirmedAgo}</p>
+            )}
+          </div>
           <div className="flex flex-wrap gap-2 ml-auto">
             {service.historyLink && onShowHistory && (
               <button 

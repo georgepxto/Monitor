@@ -18,6 +18,29 @@ const statuspageServices = [
 
 const CRITICAL_KEYWORDS = ['backoffice', 'back office', 'back-office'];
 
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function withRetry(fn, options = {}) {
+    const retries = options.retries ?? 2;
+    const baseDelayMs = options.baseDelayMs ?? 400;
+
+    let lastError;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            return await fn();
+        } catch (error) {
+            lastError = error;
+            if (attempt === retries) break;
+            const delay = baseDelayMs * Math.pow(2, attempt);
+            await sleep(delay);
+        }
+    }
+
+    throw lastError;
+}
+
 function hasBackofficeKeyword(text) {
     if (!text) return false;
     const lower = text.toLowerCase();
@@ -49,12 +72,16 @@ function isTransientNetworkError(error) {
 async function fetchStatuspage(service) {
     try {
         const summaryUrl = service.url.replace('/status.json', '/summary.json');
-        const response = await axios.get(summaryUrl, { timeout: 12000 });
+        const response = await withRetry(
+            () => axios.get(summaryUrl, { timeout: 12000 }),
+            { retries: 2, baseDelayMs: 500 }
+        );
         const data = response.data;
         const indicator = data.status.indicator;
         let status = mapStatuspageStatus(indicator);
         const link = data.page.url || service.url.replace('/api/v2/status.json', '');
         const historyLink = link.replace(/\/$/, '') + '/history';
+        const nowIso = new Date().toISOString();
 
         let description = undefined;
         let backofficeAlert = undefined;
@@ -123,6 +150,7 @@ async function fetchStatuspage(service) {
             group: service.group,
             status,
             lastUpdated: data.page.updated_at || new Date().toISOString(),
+            lastConfirmedAt: nowIso,
             description: backofficeAlert || description,
             activeIncidents,
             backofficeAlert: !!backofficeAlert,
@@ -140,8 +168,10 @@ async function fetchStatuspage(service) {
                 group: service.group,
                 status: previousState.status,
                 lastUpdated: new Date().toISOString(),
+                lastConfirmedAt: previousState.lastConfirmedAt || previousState.operationalSince || previousState.issueStartedAt || new Date().toISOString(),
                 description: `Falha temporária ao consultar status (${error.message}). Mantendo último status conhecido.`,
                 link: service.url.replace('/api/v2/status.json', ''),
+                sourceUnavailable: true,
                 error: true
             };
         }
@@ -149,10 +179,12 @@ async function fetchStatuspage(service) {
         return {
             name: service.name,
             group: service.group,
-            status: 'Amarelo',
+            status: 'Cinza',
             lastUpdated: new Date().toISOString(),
+            lastConfirmedAt: previousState?.lastConfirmedAt,
             description: `Falha ao conectar com a API de status: ${error.message}`,
             link: service.url.replace('/api/v2/status.json', ''),
+            sourceUnavailable: true,
             error: true
         };
     }
@@ -162,7 +194,10 @@ async function fetchStatuspage(service) {
 // Group 2: AWS (RSS)
 async function fetchAWS() {
     try {
-        const feed = await rssParser.parseURL('https://status.aws.amazon.com/rss/all.rss');
+        const feed = await withRetry(
+            () => rssParser.parseURL('https://status.aws.amazon.com/rss/all.rss'),
+            { retries: 2, baseDelayMs: 500 }
+        );
         const now = new Date();
         const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
 
@@ -186,6 +221,7 @@ async function fetchAWS() {
             group: 'Infraestrutura',
             status: hasActiveIssues ? 'Amarelo' : 'Verde',
             lastUpdated: feed.lastBuildDate || new Date().toISOString(),
+            lastConfirmedAt: new Date().toISOString(),
             description: hasActiveIssues ? activeIssues[0].title : undefined,
             link: hasActiveIssues ? (activeIssues[0].link || 'https://health.aws.amazon.com/health/status') : 'https://health.aws.amazon.com/health/status'
         };
@@ -194,10 +230,11 @@ async function fetchAWS() {
         return {
             name: 'AWS',
             group: 'Infraestrutura',
-            status: 'Amarelo',
+            status: 'Cinza',
             lastUpdated: new Date().toISOString(),
             description: `Falha ao processar RSS da AWS Health: ${error.message}`,
             link: 'https://health.aws.amazon.com/health/status',
+            sourceUnavailable: true,
             error: true
         };
     }
@@ -270,7 +307,10 @@ async function fetchNewsSentiment(service) {
         const query = encodeURIComponent(service.keywords);
         const rssUrl = `https://news.google.com/rss/search?q=${query}&hl=pt-BR&gl=BR&ceid=BR:pt-419`;
 
-        const feed = await rssParser.parseURL(rssUrl);
+        const feed = await withRetry(
+            () => rssParser.parseURL(rssUrl),
+            { retries: 2, baseDelayMs: 500 }
+        );
         const now = Date.now();
         const ONE_HOUR = 60 * 60 * 1000;
 
@@ -324,6 +364,7 @@ async function fetchNewsSentiment(service) {
             group: service.group,
             status,
             lastUpdated: new Date().toISOString(),
+            lastConfirmedAt: new Date().toISOString(),
             description,
             reportCount: recentCount,
             newsArticles: newsArticles.length > 0 ? newsArticles : undefined,
@@ -334,9 +375,11 @@ async function fetchNewsSentiment(service) {
         return {
             name: service.name,
             group: service.group,
-            status: 'Verde',
+            status: 'Cinza',
             lastUpdated: new Date().toISOString(),
+            sourceUnavailable: true,
             reportCount: 0,
+            description: `Falha ao coletar sinais de notícia: ${error.message}`,
             link: ddLink
         };
     }
@@ -363,8 +406,13 @@ async function fetchAllStatuses(cache, notifyTelegramBot) {
         let stateObj = serviceState.get(service.name) || {
             status: service.status,
             issueStartedAt: service.status !== 'Verde' ? new Date().toISOString() : null,
-            operationalSince: service.status === 'Verde' ? new Date().toISOString() : null
+            operationalSince: service.status === 'Verde' ? new Date().toISOString() : null,
+            lastConfirmedAt: service.lastConfirmedAt || new Date().toISOString()
         };
+
+        if (service.lastConfirmedAt) {
+            stateObj.lastConfirmedAt = service.lastConfirmedAt;
+        }
         
         // Se mudou o status na memória interna que estávamos guardando...
         if (stateObj.status !== service.status) {
@@ -386,7 +434,11 @@ async function fetchAllStatuses(cache, notifyTelegramBot) {
             service.operationalSince = stateObj.operationalSince;
         }
 
-        if (oldStatus && oldStatus !== service.status) {
+        if (!service.lastConfirmedAt && stateObj.lastConfirmedAt) {
+            service.lastConfirmedAt = stateObj.lastConfirmedAt;
+        }
+
+        if (oldStatus && oldStatus !== service.status && !service.sourceUnavailable && service.status !== 'Cinza') {
             notifyTelegramBot(service.name, oldStatus, service.status);
         }
     });

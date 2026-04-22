@@ -117,9 +117,11 @@ app.post('/api/test-notification', requireAdminKey, (req, res) => {
 
 app.get('/api/status', async (req, res) => {
     try {
+        const forceFresh = req.query.fresh === '1' || req.query.fresh === 'true';
+
         // Check cache first
         const cachedStatuses = cache.get('all_statuses');
-        if (cachedStatuses) {
+        if (!forceFresh && cachedStatuses) {
             console.log('Serving from cache');
             return res.json(cachedStatuses);
         }

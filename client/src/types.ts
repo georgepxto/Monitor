@@ -22,10 +22,23 @@ export interface Service {
     lastConfirmedAt?: string;
     sourceUnavailable?: boolean;
     historyLink?: string;
+    maintenanceLink?: string;
     activeIncidents?: {
         name: string;
         description: string;
     }[];
+}
+
+export interface MaintenanceItem {
+    id: string;
+    name: string;
+    status: string;
+    created_at: string;
+    scheduled_for: string | null;
+    scheduled_until: string | null;
+    updated_at?: string | null;
+    impacted?: string[];
+    body?: string;
 }
 
 export interface IncidentUpdate {

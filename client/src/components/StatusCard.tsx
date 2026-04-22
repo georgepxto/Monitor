@@ -9,9 +9,10 @@ import { BC_GLOSSARY } from './GlossaryModal';
 interface Props {
   service: Service;
   onShowHistory?: (service: Service) => void;
+  onShowMaintenance?: (service: Service) => void;
 }
 
-export function StatusCard({ service, onShowHistory }: Props) {
+export function StatusCard({ service, onShowHistory, onShowMaintenance }: Props) {
   const isGreen = service.status === 'Verde';
   const isYellow = service.status === 'Amarelo';
   const isRed = service.status === 'Vermelho';
@@ -51,9 +52,9 @@ export function StatusCard({ service, onShowHistory }: Props) {
   }
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 shadow-lg flex flex-col justify-between hover:shadow-xl transition-all duration-300 hover:border-gray-600">
-      <div className="flex items-start justify-between mb-4">
-        <h3 className="font-semibold text-gray-100 text-lg">{service.name}</h3>
+    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 min-h-[400px] shadow-lg flex flex-col justify-between hover:shadow-xl transition-all duration-300 hover:border-gray-600">
+      <div className="flex items-start justify-between mb-6">
+        <h3 className="font-semibold text-gray-100 text-2xl leading-tight">{service.name}</h3>
         <div className={twMerge(
           "flex items-center justify-center p-2 rounded-full",
           isGreen && "bg-green-500/10 text-green-500",
@@ -70,8 +71,8 @@ export function StatusCard({ service, onShowHistory }: Props) {
         </div>
       </div>
       
-      <div className="flex flex-col gap-3 flex-1">
-        <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex flex-col gap-5 flex-1">
+        <div className="flex items-center gap-2.5 flex-wrap">
           <span className={clsx(
             "text-sm font-medium px-2.5 py-0.5 rounded-full border",
             isGreen && "bg-green-500/10 text-green-400 border-green-500/20",
@@ -107,7 +108,7 @@ export function StatusCard({ service, onShowHistory }: Props) {
         </div>
 
         {service.backofficeAlert && (
-          <div className="p-3 bg-orange-500/10 rounded-lg border border-orange-500/40 flex items-start gap-2">
+          <div className="p-5 bg-orange-500/10 rounded-lg border border-orange-500/40 flex items-start gap-2.5">
             <AlertOctagon className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-xs font-bold text-orange-400 uppercase tracking-wider mb-1">Alerta Operacional Crítico</p>
@@ -117,7 +118,7 @@ export function StatusCard({ service, onShowHistory }: Props) {
         )}
 
         {(service.description || (service.activeIncidents && service.activeIncidents.length > 0) || (service.newsArticles && service.newsArticles.length > 0)) && (!isGreen || (service.newsArticles && service.newsArticles.length > 0)) && (
-          <div className="p-3 bg-gray-900/50 rounded-lg text-sm text-gray-300 border border-gray-700 flex flex-col gap-2">
+          <div className="p-5 bg-gray-900/50 rounded-lg text-sm text-gray-300 border border-gray-700 flex flex-col gap-2.5">
             {service.activeIncidents && service.activeIncidents.length > 0 && !isGreen ? (
               <div className="flex flex-col gap-3">
                 {service.activeIncidents.map((incident, idx) => {
@@ -187,18 +188,28 @@ export function StatusCard({ service, onShowHistory }: Props) {
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-3 mt-auto pt-4 border-t border-gray-800/50">
+        <div className="flex flex-wrap items-center justify-between gap-3 mt-auto pt-5 border-t border-gray-800/50">
           <div className="text-xs text-gray-400">
             <p className="whitespace-nowrap">Atualizado {timeAgo}{service.mocked && ' (Mock)'}</p>
             {confirmedAgo && (
               <p className="text-[11px] text-gray-500 mt-0.5 whitespace-nowrap">Última confirmação real {confirmedAgo}</p>
             )}
           </div>
-          <div className="flex flex-wrap gap-2 ml-auto">
+          <div className="grid grid-cols-3 gap-1.5 ml-auto w-full sm:w-auto sm:max-w-full">
+            {service.maintenanceLink && onShowMaintenance && (
+              <button 
+                onClick={() => onShowMaintenance(service)}
+                className="min-w-0 text-gray-400 hover:text-gray-200 transition-colors flex items-center justify-center gap-1 text-[11px] font-medium bg-gray-900/50 px-2 py-1 rounded whitespace-nowrap"
+                title="Ver manutenções programadas"
+              >
+                <Wrench className="w-3 h-3 shrink-0" />
+                <span>Manutenções</span>
+              </button>
+            )}
             {service.historyLink && onShowHistory && (
               <button 
                 onClick={() => onShowHistory(service)}
-                className="text-gray-400 hover:text-gray-200 transition-colors flex items-center gap-1.5 text-xs font-medium bg-gray-900/50 px-2 py-1 rounded shrink-0 whitespace-nowrap"
+                className="min-w-0 text-gray-400 hover:text-gray-200 transition-colors flex items-center justify-center gap-1 text-[11px] font-medium bg-gray-900/50 px-2 py-1 rounded whitespace-nowrap"
                 title="Histórico de incidentes"
               >
                 <History className="w-3 h-3 shrink-0" />
@@ -210,7 +221,7 @@ export function StatusCard({ service, onShowHistory }: Props) {
                 href={service.link} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-gray-400 hover:text-gray-200 transition-colors flex items-center gap-1.5 text-xs font-medium bg-gray-900/50 px-2 py-1 rounded shrink-0 whitespace-nowrap"
+                className="min-w-0 text-gray-400 hover:text-gray-200 transition-colors flex items-center justify-center gap-1 text-[11px] font-medium bg-gray-900/50 px-2 py-1 rounded whitespace-nowrap"
                 title="Acessar página de status"
               >
                 <span>Acessar Fonte</span>

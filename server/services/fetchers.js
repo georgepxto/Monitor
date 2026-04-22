@@ -81,6 +81,7 @@ async function fetchStatuspage(service) {
         let status = mapStatuspageStatus(indicator);
         const link = data.page.url || service.url.replace('/api/v2/status.json', '');
         const historyLink = link.replace(/\/$/, '') + '/history';
+        const maintenanceLink = link.replace(/\/$/, '') + '/maintenances';
         const nowIso = new Date().toISOString();
 
         let description = undefined;
@@ -156,6 +157,7 @@ async function fetchStatuspage(service) {
             backofficeAlert: !!backofficeAlert,
             link,
             historyLink,
+            maintenanceLink,
             isMaintenance: indicator === 'maintenance'
         };
     } catch (error) {
@@ -171,6 +173,8 @@ async function fetchStatuspage(service) {
                 lastConfirmedAt: previousState.lastConfirmedAt || previousState.operationalSince || previousState.issueStartedAt || new Date().toISOString(),
                 description: `Falha temporária ao consultar status (${error.message}). Mantendo último status conhecido.`,
                 link: service.url.replace('/api/v2/status.json', ''),
+                historyLink: service.url.replace('/api/v2/status.json', '').replace(/\/$/, '') + '/history',
+                maintenanceLink: service.url.replace('/api/v2/status.json', '').replace(/\/$/, '') + '/maintenances',
                 sourceUnavailable: true,
                 error: true
             };
@@ -184,6 +188,8 @@ async function fetchStatuspage(service) {
             lastConfirmedAt: previousState?.lastConfirmedAt,
             description: `Falha ao conectar com a API de status: ${error.message}`,
             link: service.url.replace('/api/v2/status.json', ''),
+            historyLink: service.url.replace('/api/v2/status.json', '').replace(/\/$/, '') + '/history',
+            maintenanceLink: service.url.replace('/api/v2/status.json', '').replace(/\/$/, '') + '/maintenances',
             sourceUnavailable: true,
             error: true
         };

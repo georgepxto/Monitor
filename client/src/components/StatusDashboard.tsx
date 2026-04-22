@@ -4,6 +4,7 @@ import type { Service } from '../types';
 import { StatusCard } from './StatusCard';
 import { GlossaryModal } from './GlossaryModal';
 import { HistoryModal } from './HistoryModal';
+import { MaintenanceModal } from './MaintenanceModal';
 import { RefreshCw, Activity, Server, Building2, AlertCircle, BookOpen } from 'lucide-react';
 
 export function StatusDashboard() {
@@ -16,6 +17,7 @@ export function StatusDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showGlossary, setShowGlossary] = useState(false);
   const [selectedHistoryService, setSelectedHistoryService] = useState<string | null>(null);
+  const [selectedMaintenanceService, setSelectedMaintenanceService] = useState<string | null>(null);
   const prevStatusRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
@@ -287,12 +289,13 @@ export function StatusDashboard() {
             <span className="ml-2 bg-gray-800 text-gray-400 text-xs px-2 py-1 rounded-full">{groupServices.length}</span>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-start">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-6 items-start">
             {groupServices.map((service, idx) => (
               <StatusCard 
                 key={`${service.name}-${idx}`} 
                 service={service} 
                 onShowHistory={(s) => setSelectedHistoryService(s.name)}
+                onShowMaintenance={(s) => setSelectedMaintenanceService(s.name)}
               />
             ))}
           </div>
@@ -305,6 +308,12 @@ export function StatusDashboard() {
       <HistoryModal 
         serviceName={selectedHistoryService} 
         onClose={() => setSelectedHistoryService(null)} 
+      />
+    )}
+    {selectedMaintenanceService && (
+      <MaintenanceModal
+        serviceName={selectedMaintenanceService}
+        onClose={() => setSelectedMaintenanceService(null)}
       />
     )}
     </>

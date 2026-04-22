@@ -167,6 +167,70 @@ app.get('/api/history/:serviceName', async (req, res) => {
     }
 });
 
+app.get('/api/maintenance/:serviceName', async (req, res) => {
+    const serviceName = req.params.serviceName;
+    const service = statuspageServices.find(s => s.name === serviceName);
+
+    if (!service) {
+        return res.status(404).json({ error: 'Serviço não encontrado ou não suporta manutenção via API.' });
+    }
+
+    try {
+        const summaryUrl = service.url.replace('/status.json', '/summary.json');
+        const response = await axios.get(summaryUrl, { timeout: 12000 });
+        const now = Date.now();
+        const windowEnd = now + (5 * 24 * 60 * 60 * 1000);
+
+        const maintenances = (response.data.scheduled_maintenances || [])
+            .filter(maintenance => maintenance)
+            .filter(maintenance => {
+                const status = maintenance.status;
+                const start = maintenance.scheduled_for || maintenance.created_at;
+                const end = maintenance.scheduled_until || maintenance.updated_at || maintenance.resolved_at;
+                const startTs = start ? new Date(start).getTime() : NaN;
+                const endTs = end ? new Date(end).getTime() : NaN;
+
+                if (status === 'completed') {
+                    return false;
+                }
+
+                if (status === 'in_progress') {
+                    return true;
+                }
+
+                if (status === 'scheduled') {
+                    return Number.isFinite(startTs) ? (startTs >= now && startTs <= windowEnd) : false;
+                }
+
+                // Fallback: manter apenas se estiver entre hoje e os próximos 5 dias
+                if (Number.isFinite(startTs) && startTs >= now && startTs <= windowEnd) return true;
+                if (Number.isFinite(endTs) && endTs >= now && endTs <= windowEnd) return true;
+                return false;
+            })
+            .map(maintenance => ({
+                id: maintenance.id,
+                name: maintenance.name,
+                status: maintenance.status,
+                created_at: maintenance.created_at,
+                scheduled_for: maintenance.scheduled_for || maintenance.start_at || null,
+                scheduled_until: maintenance.scheduled_until || maintenance.end_at || null,
+                updated_at: maintenance.updated_at || null,
+                impacted: (maintenance.components || []).map(c => c.name).filter(Boolean),
+                body: maintenance.incident_updates?.[0]?.body || maintenance.description || ''
+            }))
+            .sort((a, b) => {
+                const aTime = new Date(a.scheduled_for || a.created_at).getTime();
+                const bTime = new Date(b.scheduled_for || b.created_at).getTime();
+                return aTime - bTime;
+            });
+
+        res.json(maintenances);
+    } catch (error) {
+        console.error(`Error fetching maintenance for ${serviceName}:`, error.message);
+        res.status(500).json({ error: 'Erro ao buscar manutenções programadas.' });
+    }
+});
+
 app.listen(port, () => {
     console.log(`Server running on http://localhost:${port}`);
 });

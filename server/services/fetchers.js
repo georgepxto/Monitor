@@ -266,7 +266,9 @@ const newsMonitoredServices = [
         name: 'PIX',
         keywords: 'pix fora do ar OR pix caiu OR pix instabilidade OR pix problema hoje',
         ddSlug: 'pix',
-        group: 'Bancos'
+        group: 'Bancos',
+        yellowThreshold: 1,
+        redThreshold: 3
     },
     {
         name: 'Nubank',
@@ -335,14 +337,17 @@ async function fetchNewsSentiment(service) {
 
         const recentCount = recentArticles.length;
 
+        const yellowThreshold = service.yellowThreshold ?? 2;
+        const redThreshold = service.redThreshold ?? 5;
+
         // Se não há notícias na última hora → tudo ok
         let status = 'Verde';
         let description = undefined;
 
-        if (recentCount >= 5) {
+        if (recentCount >= redThreshold) {
             status = 'Vermelho';
             description = `${recentCount} notícias na última hora relatam problemas graves.`;
-        } else if (recentCount >= 2) {
+        } else if (recentCount >= yellowThreshold) {
             status = 'Amarelo';
             description = `${recentCount} notícias na última hora relatam instabilidade.`;
         }

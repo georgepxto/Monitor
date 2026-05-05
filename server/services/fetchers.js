@@ -72,17 +72,35 @@ function isTransientNetworkError(error) {
 async function fetchStatuspage(service) {
     try {
         const summaryUrl = service.url.replace('/status.json', '/summary.json');
-        const response = await withRetry(
-            () => axios.get(summaryUrl, { timeout: 12000 }),
-            { retries: 2, baseDelayMs: 500 }
-        );
-        const data = response.data;
+        const incidentsUrl = service.url.replace('/status.json', '/api/v2/incidents.json');
+        const [summaryResponse, incidentsResponse] = await Promise.all([
+            withRetry(
+                () => axios.get(summaryUrl, { timeout: 12000 }),
+                { retries: 2, baseDelayMs: 500 }
+            ),
+            withRetry(
+                () => axios.get(incidentsUrl, { timeout: 12000 }),
+                { retries: 2, baseDelayMs: 500 }
+            )
+        ]);
+
+        const data = summaryResponse.data;
+        const incidentsData = incidentsResponse.data || {};
         const indicator = data.status.indicator;
         let status = mapStatuspageStatus(indicator);
         const link = data.page.url || service.url.replace('/api/v2/status.json', '');
         const historyLink = link.replace(/\/$/, '') + '/history';
         const maintenanceLink = link.replace(/\/$/, '') + '/maintenances';
         const nowIso = new Date().toISOString();
+        const unresolvedIncidents = Array.isArray(data.incidents)
+            ? data.incidents.filter(incident => incident && incident.status !== 'resolved')
+            : [];
+        const unresolvedIncidentsFromApi = Array.isArray(incidentsData.incidents)
+            ? incidentsData.incidents.filter(incident => incident && incident.status !== 'resolved')
+            : [];
+        const combinedUnresolvedIncidents = unresolvedIncidents.length > 0
+            ? unresolvedIncidents
+            : unresolvedIncidentsFromApi;
 
         let description = undefined;
         let backofficeAlert = undefined;
@@ -99,19 +117,22 @@ async function fetchStatuspage(service) {
             } else {
                 description = `🔧 ${data.status.description || 'Manutenção programada em andamento.'}`;
             }
-        } else if (status !== 'Verde' && data.incidents && data.incidents.length > 0) {
-            const latestIncident = data.incidents[0];
+        } else if (combinedUnresolvedIncidents.length > 0) {
+            const latestIncident = combinedUnresolvedIncidents[0];
             const latestUpdate = latestIncident.incident_updates?.[0];
             description = latestUpdate
                 ? `${latestIncident.name}: ${latestUpdate.body}`
                 : latestIncident.name;
+            if (status === 'Verde') {
+                status = 'Amarelo';
+            }
         } else if (status !== 'Verde') {
             description = data.status.description;
         }
 
         let activeIncidents = undefined;
-        if (data.incidents && data.incidents.length > 0 && status !== 'Verde') {
-            activeIncidents = data.incidents.map(inc => {
+        if (combinedUnresolvedIncidents.length > 0) {
+            activeIncidents = combinedUnresolvedIncidents.map(inc => {
                 const latestUpdate = inc.incident_updates?.[0];
                 return {
                     name: inc.name,
@@ -123,8 +144,8 @@ async function fetchStatuspage(service) {
         // --- Detecção de incidentes relacionados ao Backoffice ---
         // Mesmo que o status geral seja Verde, verifica se há algum incident ativo
         // que mencione backoffice no nome ou nos componentes afetados.
-        if (service.checkBackoffice && data.incidents && data.incidents.length > 0) {
-            const backofficeIncident = data.incidents.find(incident => {
+        if (service.checkBackoffice && combinedUnresolvedIncidents.length > 0) {
+            const backofficeIncident = combinedUnresolvedIncidents.find(incident => {
                 // Checa o nome do incidente
                 if (hasBackofficeKeyword(incident.name)) return true;
                 // Checa os componentes afetados
@@ -144,6 +165,10 @@ async function fetchStatuspage(service) {
                     : `⚠️ Backoffice com problema: ${backofficeIncident.name}`;
                 console.log(`[BACKOFFICE ALERT] ${service.name}: ${backofficeIncident.name}`);
             }
+        }
+
+        if (service.name === 'Betconstruct' && combinedUnresolvedIncidents.length > 0 && status === 'Verde') {
+            status = 'Amarelo';
         }
 
         return {

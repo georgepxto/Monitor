@@ -69,23 +69,41 @@ function isTransientNetworkError(error) {
     );
 }
 
+async function fetchIncidentsIfAvailable(incidentsUrl) {
+    try {
+        const response = await axios.get(incidentsUrl, {
+            timeout: 12000,
+            validateStatus: (status) => status === 200 || status === 404
+        });
+
+        if (response.status === 404) {
+            return [];
+        }
+
+        return Array.isArray(response.data?.incidents) ? response.data.incidents : [];
+    } catch (error) {
+        if (isTransientNetworkError(error)) {
+            return [];
+        }
+
+        console.error(`Error fetching incidents:`, error.message);
+        return [];
+    }
+}
+
 async function fetchStatuspage(service) {
     try {
         const summaryUrl = service.url.replace('/status.json', '/summary.json');
         const incidentsUrl = service.url.replace('/status.json', '/api/v2/incidents.json');
-        const [summaryResponse, incidentsResponse] = await Promise.all([
+        const [summaryResponse, incidentsList] = await Promise.all([
             withRetry(
                 () => axios.get(summaryUrl, { timeout: 12000 }),
                 { retries: 2, baseDelayMs: 500 }
             ),
-            withRetry(
-                () => axios.get(incidentsUrl, { timeout: 12000 }),
-                { retries: 2, baseDelayMs: 500 }
-            )
+            fetchIncidentsIfAvailable(incidentsUrl)
         ]);
 
         const data = summaryResponse.data;
-        const incidentsData = incidentsResponse.data || {};
         const indicator = data.status.indicator;
         let status = mapStatuspageStatus(indicator);
         const link = data.page.url || service.url.replace('/api/v2/status.json', '');
@@ -95,12 +113,9 @@ async function fetchStatuspage(service) {
         const unresolvedIncidents = Array.isArray(data.incidents)
             ? data.incidents.filter(incident => incident && incident.status !== 'resolved')
             : [];
-        const unresolvedIncidentsFromApi = Array.isArray(incidentsData.incidents)
-            ? incidentsData.incidents.filter(incident => incident && incident.status !== 'resolved')
-            : [];
         const combinedUnresolvedIncidents = unresolvedIncidents.length > 0
             ? unresolvedIncidents
-            : unresolvedIncidentsFromApi;
+            : incidentsList.filter(incident => incident && incident.status !== 'resolved');
 
         let description = undefined;
         let backofficeAlert = undefined;
